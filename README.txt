@@ -1,4 +1,4 @@
-﻿AMBIENT v0.1
+﻿AMBIENT v0.3
 
 June 2012.  This is a beta release
 
