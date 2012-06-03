@@ -6,12 +6,46 @@ GETTING STARTED
 
 Language: Python
 Non-standard requirements: libSBML and NetworkX
+AMBIENT has been tested and works with Python v2.7, libSBML v5.3.0, NetworkX v1.6
 
 Installation requires only importing the module into Python: 'import ambient'.  Details on use of the functions in the module can be found in the module file, including a short tutorial and information on customising the simulated annealing algorithm.  The program can also be run without installation from the command line (as long as ambient.py is in the path).
  
-EXAMPLES
+EXAMPLE
 
-The example can be found in /examples/SCE for Saccharomyces cerevisiae diauxie (baker's yeast).  Details on running the example can be found in the module file.  References for these data and models can be found at the end of this document.
+The example can be found in /example for Saccharomyces cerevisiae diauxie (baker's yeast).  Details on running the example can be found in the module file.  References for these data and models can be found at the end of this document.
+
+Basic command line usage, from the /example directory type:
+
+'python ambient.py -m yeast_4.02.xml -s SCE_scores.txt -e SCE_pos_log_run -N 100000 -P 10000'
+
+which runs the algorithm for 100,000 steps and bases the empirical significance values for the found modules on 10,000 random samples per module.
+
+FULL COMMAND LINE USAGE
+
+usage: ambient.py [-h] -m MODEL_FILE [-s SCORE_FILE] [-g GENE_SCORE_FILE] -e
+                  EXPT_NAME [-N N] [-M M] [-d D] [-P P] [-i ADAPTIVE_INTERVAL]
+                  [-r SCORE_CHANGE_RATIO] [-c INTERVALS_CUTOFF]
+
+Execute AMBIENT.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m MODEL_FILE         input metabolic network in SBML format
+  -s SCORE_FILE         input scores from a tsv, using reaction IDs
+  -g GENE_SCORE_FILE    input gene scores from a tsv to score reactions
+  -e EXPT_NAME          output name for results files
+  -N N                  number of edge toggles
+  -M M                  number modules to track
+  -d D                  direction of search
+  -P P                  number of tests for empirical significance testing
+  -i ADAPTIVE_INTERVAL  number of steps before testing score change for
+                        adaptive annealing
+  -r SCORE_CHANGE_RATIO
+                        percentage cutoff for adaptive temperature change
+  -c INTERVALS_CUTOFF   number of step intervals before automatic temperature
+                        reduction
+
+GENEPIX DATA
 
 If transcriptional data are in the GenePix Pro Excel format, they can be imported automatically and scores for each reaction in the relevant organism's metabolic network can be inferred.  This is achieved by the 'import_channels_genepix' function, which can take an arbitrary number of results files (representing, say, Biological replicates) and get mean log-fold-changes of transcription for each reaction.  
 

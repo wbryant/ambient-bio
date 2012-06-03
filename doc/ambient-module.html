@@ -111,12 +111,12 @@
     <p>N.B. the default value for <code>N</code> (the number of iterations)
     is 10000, which may take a few minutes to run.  This value is for 
     testing, a more realistic value for networks of this size would be 
-    ~2,500,000, but would depend on the underlying structure of the network
+    ~1,000,000, but would depend on the underlying structure of the network
     and the distribution of metabolite/reaction scores.</p>
   <h1 class="heading">MAIN FUNCTION DESCRIPTION</h1>
-    <p><code>H, scores, cc = ambient(expt_name, Q, N = 10000, M = 20, dir =
-    1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff
-    = 6, H_edges = -1)</code></p>
+    <p><code>G, H, scores, cc = ambient(expt_name, Q, N = 10000, M = 20, 
+    dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, 
+    intervals_cutoff = 6, H_edges = -1)</code></p>
     <h2 class="heading">Inputs</h2>
       <p>Required:</p>
       <p><code>expt_name</code> - string - a name for output files to store
@@ -140,12 +140,13 @@
       simulated annealing process.</p>
     <h2 class="heading">Outputs</h2>
       <p>Output variables:</p>
-      <p><code>H</code> - networkx Graph consisting of the subnetwork 
-      induced by the final selected edge set. <code>scores</code> - list of
-      floats consisting of the scores of the top 20 modules in the final 
-      subnetwork (in order high to low). <code>cc_out</code> - an ordered 
-      list of tuples where each entry contains the nodes in the 20 top 
-      scoring modules (in order high to low scoring).</p>
+      <p><code>G</code> - original network. <code>H</code> - networkx Graph
+      consisting of the subnetwork induced by the final selected edge set. 
+      <code>scores</code> - list of floats consisting of the scores of the 
+      top 20 modules in the final subnetwork (in order high to low). 
+      <code>cc_out</code> - an ordered list of tuples where each entry 
+      contains the nodes in the 20 top scoring modules (in order high to 
+      low scoring).</p>
       <p>Output files:</p>
       <p><code>expt_name.log</code> which contains details of the edge 
       toggling events that affected the top scoring module, which gives an 
@@ -154,9 +155,7 @@
       shelve.open() command in the shelf module, which contains the three 
       main outputs and the network used for the simulated annealing.</p>
       <p>For help on command-line execution type <code>python ambient.py 
-      -h</code>.  The command line currently has limited functionality, it 
-      only takes in up to the first four input parameters and retains all 
-      other options at their default values.</p>
+      -h</code>.</p>
 
 <hr />
 <div class="fields">      <p><strong>Version:</strong>
@@ -937,22 +936,22 @@
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a name="c_"></a><span class="summary-name">c_</span> = <code title="&lt;numpy.lib.index_tricks.CClass object at 0x1007dd590&gt;">&lt;numpy.lib.index_tricks.CClass object at 0x1007dd590&gt;</code>
+        <a name="c_"></a><span class="summary-name">c_</span> = <code title="&lt;numpy.lib.index_tricks.CClass object at 0x1014134d0&gt;">&lt;numpy.lib.index_tricks.CClass object at 0x1014134d0&gt;</code>
     </td>
   </tr>
 <tr>
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a href="ambient-module.html#cast" class="summary-name">cast</a> = <code title="{&lt;type 'numpy.void'&gt;: &lt;function &lt;lambda&gt; at 0x10149ed70&gt;, &lt;type 'numpy\
-.complex128'&gt;: &lt;function &lt;lambda&gt; at 0x10149ede8&gt;, &lt;type 'numpy.uint64\
-'&gt;: &lt;function &lt;lambda&gt; at 0x10149ee60&gt;, &lt;type 'numpy.int64'&gt;: &lt;functio\
-n &lt;lambda&gt; at 0x10149eed8&gt;, &lt;type 'numpy.float16'&gt;: &lt;function &lt;lambda&gt;\
- at 0x10149ef50&gt;, &lt;type 'numpy.unicode_'&gt;: &lt;function &lt;lambda&gt; at 0x101\
-4a0050&gt;, &lt;type 'numpy.bool_'&gt;: &lt;function &lt;lambda&gt; at 0x1014a00c8&gt;, &lt;ty\
-pe 'numpy.complex64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a0140&gt;, &lt;type 'nump\
-y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a01b8&gt;, &lt;type 'numpy.int64'&gt;: \
-...">{&lt;type 'numpy.void'&gt;: &lt;function &lt;lambda&gt; at 0x10149ed70<code class="variable-ellipsis">...</code></code>
+        <a href="ambient-module.html#cast" class="summary-name">cast</a> = <code title="{&lt;type 'numpy.void'&gt;: &lt;function &lt;lambda&gt; at 0x100766de8&gt;, &lt;type 'numpy\
+.complex128'&gt;: &lt;function &lt;lambda&gt; at 0x100766e60&gt;, &lt;type 'numpy.uint64\
+'&gt;: &lt;function &lt;lambda&gt; at 0x100766ed8&gt;, &lt;type 'numpy.int64'&gt;: &lt;functio\
+n &lt;lambda&gt; at 0x100766f50&gt;, &lt;type 'numpy.float16'&gt;: &lt;function &lt;lambda&gt;\
+ at 0x10076b050&gt;, &lt;type 'numpy.unicode_'&gt;: &lt;function &lt;lambda&gt; at 0x100\
+76b0c8&gt;, &lt;type 'numpy.bool_'&gt;: &lt;function &lt;lambda&gt; at 0x10076b140&gt;, &lt;ty\
+pe 'numpy.complex64'&gt;: &lt;function &lt;lambda&gt; at 0x10076b1b8&gt;, &lt;type 'nump\
+y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x10076b230&gt;, &lt;type 'numpy.int64'&gt;: \
+...">{&lt;type 'numpy.void'&gt;: &lt;function &lt;lambda&gt; at 0x100766de8<code class="variable-ellipsis">...</code></code>
     </td>
   </tr>
 <tr>
@@ -1043,7 +1042,7 @@ y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a01b8&gt;, &lt;type 'numpy.i
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a href="ambient-module.html#index_exp" class="summary-name">index_exp</a> = <code title="&lt;numpy.lib.index_tricks.IndexExpression object at 0x1007dd610&gt;">&lt;numpy.lib.index_tricks.IndexExpression object at <code class="variable-ellipsis">...</code></code>
+        <a href="ambient-module.html#index_exp" class="summary-name">index_exp</a> = <code title="&lt;numpy.lib.index_tricks.IndexExpression object at 0x101413550&gt;">&lt;numpy.lib.index_tricks.IndexExpression object at <code class="variable-ellipsis">...</code></code>
     </td>
   </tr>
 <tr>
@@ -1155,7 +1154,7 @@ y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a01b8&gt;, &lt;type 'numpy.i
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a name="mgrid"></a><span class="summary-name">mgrid</span> = <code title="&lt;numpy.lib.index_tricks.nd_grid object at 0x1007dd4d0&gt;">&lt;numpy.lib.index_tricks.nd_grid object at 0x1007dd4d0&gt;</code>
+        <a name="mgrid"></a><span class="summary-name">mgrid</span> = <code title="&lt;numpy.lib.index_tricks.nd_grid object at 0x101413410&gt;">&lt;numpy.lib.index_tricks.nd_grid object at 0x101413410&gt;</code>
     </td>
   </tr>
 <tr>
@@ -1233,7 +1232,7 @@ type 'numpy.uint16'&gt;: 2, &lt;type 'numpy.int16'&gt;: 2, &lt;type 'numpy.compl
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a name="ogrid"></a><span class="summary-name">ogrid</span> = <code title="&lt;numpy.lib.index_tricks.nd_grid object at 0x1007dd510&gt;">&lt;numpy.lib.index_tricks.nd_grid object at 0x1007dd510&gt;</code>
+        <a name="ogrid"></a><span class="summary-name">ogrid</span> = <code title="&lt;numpy.lib.index_tricks.nd_grid object at 0x101413450&gt;">&lt;numpy.lib.index_tricks.nd_grid object at 0x101413450&gt;</code>
     </td>
   </tr>
 <tr>
@@ -1254,7 +1253,7 @@ type 'numpy.uint16'&gt;: 2, &lt;type 'numpy.int16'&gt;: 2, &lt;type 'numpy.compl
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a name="r_"></a><span class="summary-name">r_</span> = <code title="&lt;numpy.lib.index_tricks.RClass object at 0x1007dd550&gt;">&lt;numpy.lib.index_tricks.RClass object at 0x1007dd550&gt;</code>
+        <a name="r_"></a><span class="summary-name">r_</span> = <code title="&lt;numpy.lib.index_tricks.RClass object at 0x101413490&gt;">&lt;numpy.lib.index_tricks.RClass object at 0x101413490&gt;</code>
     </td>
   </tr>
 <tr>
@@ -1296,7 +1295,7 @@ type 'numpy.uint16'&gt;: 2, &lt;type 'numpy.int16'&gt;: 2, &lt;type 'numpy.compl
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
-        <a href="ambient-module.html#s_" class="summary-name">s_</a> = <code title="&lt;numpy.lib.index_tricks.IndexExpression object at 0x1007dd690&gt;">&lt;numpy.lib.index_tricks.IndexExpression object at 0x1007d<code class="variable-ellipsis">...</code></code>
+        <a href="ambient-module.html#s_" class="summary-name">s_</a> = <code title="&lt;numpy.lib.index_tricks.IndexExpression object at 0x1014135d0&gt;">&lt;numpy.lib.index_tricks.IndexExpression object at 0x10141<code class="variable-ellipsis">...</code></code>
     </td>
   </tr>
 <tr>
@@ -1470,7 +1469,7 @@ type 'numpy.uint16'&gt;: 2, &lt;type 'numpy.int16'&gt;: 2, &lt;type 'numpy.compl
   <p>See 
   http://en.wikipedia.org/wiki/False_discovery_rate#Independent_tests for 
   more detail on the theory behind the correction.</p>
-  <p>:Parameters:</p>
+  <p>Parameters:</p>
   <ul>
     <li>
       `p_values`: a list or iterable of p-values sorted in ascending order
@@ -1608,14 +1607,14 @@ array([[-4.49401501,  4.00950034, -1.81814867,  7.29718677],  #random
   <dl class="fields">
     <dt>Value:</dt>
       <dd><table><tr><td><pre class="variable">
-{&lt;type 'numpy.void'&gt;: &lt;function &lt;lambda&gt; at 0x10149ed70&gt;, &lt;type 'numpy<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
-.complex128'&gt;: &lt;function &lt;lambda&gt; at 0x10149ede8&gt;, &lt;type 'numpy.uint64<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
-'&gt;: &lt;function &lt;lambda&gt; at 0x10149ee60&gt;, &lt;type 'numpy.int64'&gt;: &lt;functio<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
-n &lt;lambda&gt; at 0x10149eed8&gt;, &lt;type 'numpy.float16'&gt;: &lt;function &lt;lambda&gt;<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
- at 0x10149ef50&gt;, &lt;type 'numpy.unicode_'&gt;: &lt;function &lt;lambda&gt; at 0x101<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
-4a0050&gt;, &lt;type 'numpy.bool_'&gt;: &lt;function &lt;lambda&gt; at 0x1014a00c8&gt;, &lt;ty<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
-pe 'numpy.complex64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a0140&gt;, &lt;type 'nump<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
-y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a01b8&gt;, &lt;type 'numpy.int64'&gt;: <span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+{&lt;type 'numpy.void'&gt;: &lt;function &lt;lambda&gt; at 0x100766de8&gt;, &lt;type 'numpy<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+.complex128'&gt;: &lt;function &lt;lambda&gt; at 0x100766e60&gt;, &lt;type 'numpy.uint64<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+'&gt;: &lt;function &lt;lambda&gt; at 0x100766ed8&gt;, &lt;type 'numpy.int64'&gt;: &lt;functio<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+n &lt;lambda&gt; at 0x100766f50&gt;, &lt;type 'numpy.float16'&gt;: &lt;function &lt;lambda&gt;<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+ at 0x10076b050&gt;, &lt;type 'numpy.unicode_'&gt;: &lt;function &lt;lambda&gt; at 0x100<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+76b0c8&gt;, &lt;type 'numpy.bool_'&gt;: &lt;function &lt;lambda&gt; at 0x10076b140&gt;, &lt;ty<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+pe 'numpy.complex64'&gt;: &lt;function &lt;lambda&gt; at 0x10076b1b8&gt;, &lt;type 'nump<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x10076b230&gt;, &lt;type 'numpy.int64'&gt;: <span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
 <code class="variable-ellipsis">...</code>
 </pre></td></tr></table>
 </dd>
@@ -1634,7 +1633,7 @@ y.uint64'&gt;: &lt;function &lt;lambda&gt; at 0x1014a01b8&gt;, &lt;type 'numpy.i
   <dl class="fields">
     <dt>Value:</dt>
       <dd><table><tr><td><pre class="variable">
-&lt;numpy.lib.index_tricks.IndexExpression object at 0x1007dd610&gt;
+&lt;numpy.lib.index_tricks.IndexExpression object at 0x101413550&gt;
 </pre></td></tr></table>
 </dd>
   </dl>
@@ -1678,7 +1677,7 @@ type 'numpy.uint16'&gt;: 2, &lt;type 'numpy.int16'&gt;: 2, &lt;type 'numpy.compl
   <dl class="fields">
     <dt>Value:</dt>
       <dd><table><tr><td><pre class="variable">
-&lt;numpy.lib.index_tricks.IndexExpression object at 0x1007dd690&gt;
+&lt;numpy.lib.index_tricks.IndexExpression object at 0x1014135d0&gt;
 </pre></td></tr></table>
 </dd>
   </dl>
@@ -1867,7 +1866,7 @@ type 'numpy.uint16'&gt;: 2, &lt;type 'numpy.int16'&gt;: 2, &lt;type 'numpy.compl
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Thu May 31 12:40:37 2012
+    Generated by Epydoc 3.0.1 on Sun Jun  3 17:15:50 2012
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

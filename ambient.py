@@ -75,13 +75,13 @@ G_output = amb.gml_export(G_class, 'MTU_example.graphml')
 
 N.B. the default value for C{N} (the number of iterations) is 10000, which may
 take a few minutes to run.  This value is for testing, a more realistic value
-for networks of this size would be ~2,500,000, but would depend on the underlying
+for networks of this size would be ~1,000,000, but would depend on the underlying
 structure of the network and the distribution of metabolite/reaction scores.
 
 MAIN FUNCTION DESCRIPTION
 =========================
 
-C{H, scores, cc = ambient(expt_name, Q, N = 10000, M = 20, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 6, H_edges = -1)}
+C{G, H, scores, cc = ambient(expt_name, Q, N = 10000, M = 20, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 6, H_edges = -1)}
 
 Inputs
 ------
@@ -104,6 +104,7 @@ Outputs
 -------
 Output variables:
 
+C{G} - original network.
 C{H} - networkx Graph consisting of the subnetwork induced by the final selected edge set.
 C{scores} - list of floats consisting of the scores of the top 20 modules in the final subnetwork (in order high to low).
 C{cc_out} - an ordered list of tuples where each entry contains the nodes in the 20 top scoring modules (in order high to low scoring).
@@ -114,9 +115,7 @@ C{expt_name.log} which contains details of the edge toggling events that affecte
 C{expt_name.dat} which is a shelf file created by the shelve.open() command in the shelf module, which contains the three main outputs and the network used for the simulated annealing.
 
 
-For help on command-line execution type C{python ambient.py -h}.  The command
-line currently has limited functionality, it only takes in up to the first four
-input parameters and retains all other options at their default values.
+For help on command-line execution type C{python ambient.py -h}.  
 """
 
 import numpy
@@ -984,6 +983,7 @@ def calc_bh_values(p_values, num_total_tests = -1):
         bh_values.append(bh_value)
     return bh_values
 
+
 # Script function - inputs required are:
 if __name__ == "__main__":
     import argparse
@@ -996,6 +996,17 @@ if __name__ == "__main__":
     parser.add_argument('-M', action='store', dest='M', type=int, default = -1, help='number modules to track')
     parser.add_argument('-d', action='store', dest='d', type=int, default = 1, help='direction of search')
     parser.add_argument('-P', action='store', dest='P', type=int, default = 10000, help='number of tests for empirical significance testing')
+    
+    #adaptive_interval
+    parser.add_argument('-i', action='store', dest='adaptive_interval', type=int, default = 3000, help='number of steps before testing score change for adaptive annealing')
+    
+    #score_change_ratio
+    parser.add_argument('-r', action='store', dest='score_change_ratio', type=int, default = 0.2, help='percentage cutoff for adaptive temperature change')
+    
+    #intervals_cutoff
+    parser.add_argument('-c', action='store', dest='intervals_cutoff', type=int, default = 6, help='number of step intervals before automatic temperature reduction')
+    
+    
     args = parser.parse_args()
     
     # Import model and data
@@ -1019,7 +1030,7 @@ if __name__ == "__main__":
 	print 'Using logarithmic scoring.'
     
     # Execute simulated annealing
-    G, H, _, ccomps = ambient(args.expt_name, G, args.N, args.M, args.d)
+    G, H, _, ccomps = ambient(args.expt_name, G, args.N, args.M, args.d. args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
     
     #Get significance for each module
     _, _, _, qvals = get_module_pvalues(H, G, args.M, args.P)
