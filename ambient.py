@@ -1,5 +1,5 @@
 """
-AMBIENT v0.1: Active Modules for Bipartite Networks
+AMBIENT v0.3: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
@@ -111,9 +111,9 @@ C{cc_out} - an ordered list of tuples where each entry contains the nodes in the
 
 Output files:
 
-C{expt_name.log} which contains details of the edge toggling events that affected the top scoring module, which gives an indication of how the algorithm progressed.
-C{expt_name.dat} which is a shelf file created by the shelve.open() command in the shelf module, which contains the three main outputs and the network used for the simulated annealing.
-
+'C{expt_name}.log' which contains details of the edge toggling events that affected the top scoring module, which gives an indication of how the algorithm progressed.
+'C{expt_name}.dat' which is a shelf file created by the shelve.open() command in the shelve Python module, which contains the three main outputs and the network used for the simulated annealing.
+'C{expt_name}.tsv' which is a table of all nodes in all significant modules (q<0.05).
 
 For help on command-line execution type C{python ambient.py -h}.  
 """
@@ -259,8 +259,8 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
             
 	    ro_change = 100000*(score_sum-score_win_prev)/(adaptive_interval*score_win_prev)
 	    if abs(ro_change) < score_change_ratio or intervals_count == intervals_cutoff:
-		T = T*0.9
-	    	n_toggles = (n_toggles*9)/10
+		T = T*0.8
+	    	n_toggles = (n_toggles*8)/10
 		if n_toggles < 1:
 		    n_toggles = 1
 		intervals_count = 0
@@ -701,6 +701,48 @@ def get_module_reactions(cc_H, G):
     
     return H_reactions, G_only_reactions
 
+def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
+    """Export all significant modules to a flat file tsv table."""
+    f = open(cc([expt_name,'.tsv']),'w')
+    for idx, ccomp in enumerate(ccomps):
+	if qvals[idx] <= q_cutoff:
+	    f.write('#Module ' + str(idx+1) + ' - q-value = ' + str(qvals[idx]) + ', no. of nodes: ' + str(len(ccomp)) + '.\n')
+	    for node in ccomp:
+		n = G.node[node]
+		if n['type'] == 'reaction':
+		    f.write(n['id'] + '\t' + n['name'] + '\t' + str(n['score']) + '\t' + n['type'] + '\n')
+	    for node in ccomp:
+		n = G.node[node]
+		if n['type'] == 'metabolite':
+		    f.write(n['id'] + '\t' + n['name'] + '\t' + str(n['score']) + '\t' + n['type'] + '\n')
+	    f.write('\n')
+    f.close()
+
+#def output_rxn_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
+#    """Export all significant modules to a flat file tsv table."""
+#    f = open(cc([expt_name,'_rxns.tsv']),'w')
+#    for idx, ccomp in enumerate(ccomps):
+#	if qvals[idx] <= q_cutoff:
+#	    f.write('\tModule ' + str(idx+1) + ' - q-value = ' + str(qvals[idx]) + ', no. of nodes: ' + str(len(ccomp)) + '.\n')
+#	    for node in ccomp:
+#		n = G.node[node]
+#		if n['type'] == 'reaction':
+#		    f.write(n['id'] + '\t' + n['name'] + '\t' + str(n['score']) + '\n')
+#    f.close()
+#
+#    
+#def output_met_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
+#    """Export all significant modules to a flat file tsv table."""
+#    f = open(cc([expt_name,'_mets.tsv']),'w')
+#    for idx, ccomp in enumerate(ccomps):
+#	if qvals[idx] <= q_cutoff:
+#	    f.write('\tModule ' + str(idx+1) + ' - q-value = ' + str(qvals[idx]) + ', no. of nodes: ' + str(len(ccomp)) + '.\n')
+#	    for node in ccomp:
+#		n = G.node[node]
+#		if n['type'] == 'metabolite':
+#		    f.write(n['id'] + '\t' + n['name'] + '\t' + str(n['score']) + '\n')
+#    f.close()
+
 #Export a given graph K to a GraphML file with name 'filename', with the
 #following provisos:
 #
@@ -1030,10 +1072,14 @@ if __name__ == "__main__":
 	print 'Using logarithmic scoring.'
     
     # Execute simulated annealing
-    G, H, _, ccomps = ambient(args.expt_name, G, args.N, args.M, args.d. args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
+    G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
     
     #Get significance for each module
     _, _, _, qvals = get_module_pvalues(H, G, args.M, args.P)
+    
+    #Output flat file of significant results
+    output_results_table(expt, G, ccomps, qvals)
+    #output_met_results_table(expt, G, ccomps, qvals)
     
     # Classify nodes in the modules found and export a GraphML file including
     # those data.  Also store intermediate networks in the .dat file.

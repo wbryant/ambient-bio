@@ -45,9 +45,15 @@ optional arguments:
   -c INTERVALS_CUTOFF   number of step intervals before automatic temperature
                         reduction
 
+OUTPUTS
+
+EXPT_NAME.LOG which contains details of the edge toggling events that affected the top scoring module, which gives an indication of how the algorithm progressed.
+EXPT_NAME.DAT which is a shelf file created by the shelve.open() command in the shelve module, which contains the three main outputs and the network used for the simulated annealing.
+EXPT_NAME.TSV which is a table of all nodes in all significant modules (q<0.05).
+
 GENEPIX DATA
 
-If transcriptional data are in the GenePix Pro Excel format, they can be imported automatically and scores for each reaction in the relevant organism's metabolic network can be inferred.  This is achieved by the 'import_channels_genepix' function, which can take an arbitrary number of results files (representing, say, Biological replicates) and get mean log-fold-changes of transcription for each reaction.  
+If transcriptional data are in the GenePix Pro Excel format, they can be imported automatically and scores for each reaction in the relevant organism's metabolic network can be inferred.  This is achieved using the 'import_channels_genepix' function, which can take an arbitrary number of results files (representing, say, Biological replicates) and get mean log-fold-changes of transcription for each gene and reaction.  
 
 CONTACT
 
