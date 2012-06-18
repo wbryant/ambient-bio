@@ -212,19 +212,19 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     interval_cutoff_reached = 0
     count_attempts = 0
     score_sum = 0.0
-    score_win_prev = adaptive_interval*(sum(s_H))
+    score_win_prev = adaptive_interval*(sumpos(s_H))
     keep_count = 0
     t1 = time()
     count_score_improvements = 0
     count_score_imps_per_round = 0
-    print 'Current s_H: %8.2f %8.2f %8.2f' % (sum(s_H), s_H[0], s_H[-1])
+    print 'Current s_H: %8.2f %8.2f %8.2f' % (sumpos(s_H), s_H[0], s_H[-1])
     
     #Run through N steps of this algorithm
     print 'Begin annealing ...'
     for i in range(1, N):
 	
 	count_attempts += 1
-	score_sum += sum(s_H)
+	score_sum += sumpos(s_H)
 	
         #Randomly change the network by a set of edges
         toggle_edges = rand.sample(G_edges,n_toggles)
@@ -236,19 +236,19 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	
 	#Compare s scores to decide whether to keep the change
         keep_change = compare_graph_scores(s_H_n, s_H, T)
-        if sum(s_H_n) > sum(s_H):
-	    count_score_improvements += 1
-	    count_score_imps_per_round += 1
-	
         if keep_change == 1:
 	    keep_count += 1
-            # update scores
+            # update scores to new state
             s_H = s_H_n
             toggle_subgraph_edges(H, H_edges, G, toggle_edges)
         else:
+	    # revert to previous state
             toggle_subgraph_edges(H_n, H_n_edges, G, toggle_edges)
 	    
-	
+	#For adaptive annealing, check sum of positive scoring modules and count improvements
+        if sumpos(s_H_n) > sumpos(s_H):
+	    count_score_improvements += 1
+	    count_score_imps_per_round += 1
 	
         # Keep user informed of progress and approximate time until completion
         if i/adaptive_interval == i/float(adaptive_interval):
@@ -286,8 +286,8 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    print 'Temperature for following: %5.4f.' % (T)
 	    print 'Number of toggles per step for following: %d.' % (n_toggles)
 	    print 'Length of module_score_dict: %d.' % (len(module_score_dict))
-	    print 'Current score of top 20: %5.4f.' % (sum(s_H[0:20]))
-	    print 'Current s_H sum: %4.2f' % (sum(s_H))
+	    print 'Current score of top 20: %5.4f.' % (sumpos(s_H[0:20]))
+	    print 'Current s_H sum: %4.2f' % (sumpos(s_H))
 	    print 'Current highest s_H: %4.2f' % (s_H[0])
 	    print 'Current second highest s_H: %4.2f\n' % (s_H[1])
 	    
@@ -315,8 +315,13 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     
     return G, H, scores, cc_out
 
-
-
+#Find sum of positive values in a list
+def sumpos(list):
+    listpos = 0
+    for entry in list:
+	if entry > 0:
+	    listpos += entry
+    return listpos
    
 # This function scores samples from a bipartite met/rxn graph by summing
 # reaction scores and summing metabolite weights and returns the sum 
