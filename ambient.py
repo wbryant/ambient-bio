@@ -136,7 +136,7 @@ from libsbml import *
 
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
-def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 6, H_edges = -1):
+def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1):
     """Find high scoring modules in a bipartite metabolic network Q."""
 
     G = Q.to_undirected()
@@ -179,14 +179,15 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     # Estimate typical score changes and set beginning temperature
     module_score_dict = {}
     s_H_sample = []
-    for i in range(100):
+    print 'Determining initial value for T ...'
+    for i in range(500):
 	H_edges = rand.sample(G.edges(),q)
 	H_edges = set(H_edges)
 	H = edges_to_graph(G, H_edges)
 	s_H, _ = get_graph_scores(H, M, score_dict, module_score_dict)
 	s_H_sample.append(max(s_H))
     T = max(s_H_sample) - min(s_H_sample)
-    T = T/5.0
+    T = T/10.0
     print 'Initial value of T: %4.4f.' % (T)
     
     # Set initial number of edges to toggle at each step
@@ -234,6 +235,11 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
         # Get scores for the new subgraph
         s_H_n, _ = get_graph_scores(H_n, M, score_dict, module_score_dict)
 	
+	#For adaptive annealing, check sum of positive scoring modules and count improvements
+        if sumpos(s_H_n) > sumpos(s_H):
+	    count_score_improvements += 1
+	    count_score_imps_per_round += 1
+	
 	#Compare s scores to decide whether to keep the change
         keep_change = compare_graph_scores(s_H_n, s_H, T)
         if keep_change == 1:
@@ -245,11 +251,6 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    # revert to previous state
             toggle_subgraph_edges(H_n, H_n_edges, G, toggle_edges)
 	    
-	#For adaptive annealing, check sum of positive scoring modules and count improvements
-        if sumpos(s_H_n) > sumpos(s_H):
-	    count_score_improvements += 1
-	    count_score_imps_per_round += 1
-	
         # Keep user informed of progress and approximate time until completion
         if i/adaptive_interval == i/float(adaptive_interval):
 	    
@@ -282,7 +283,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    count_score_imps_per_round = 0
 	    if interval_cutoff_reached == 1:
 		print 'Interval cutoff reached, moving to new temperature.'
-	    interval_cutoff_reached = 0
+		interval_cutoff_reached = 0
 	    print 'Temperature for following: %5.4f.' % (T)
 	    print 'Number of toggles per step for following: %d.' % (n_toggles)
 	    print 'Length of module_score_dict: %d.' % (len(module_score_dict))
