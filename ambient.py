@@ -583,8 +583,8 @@ def edges_to_graph(G, H_edges):
 
 
 # Calculate p-values for each module in H (being a subgraph of G), or if H is a list of edges, for each module induced by those edges in G
-def get_module_pvalues(H, G, M = 1000, P = 10000):
-    """Find significance values for all modules (connected components) in a subgraph of a reaction/metabolite bipartite network."""
+def get_module_pvalues(H, G, M = 1000, P = 10000, scores = -1):
+    """Find significance values for all modules with a positive score (connected components) in a subgraph of a reaction/metabolite bipartite network."""
     print 'Calculating p-values and q-values for modules ...'
     r_scores = []
     m_scores = []
@@ -604,21 +604,27 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
     
     pvals_dict = {}
     cc_pvals = []
+    no_pos_scores = 0
     for cc in H_ccs:
-	if len(cc) < 400:
-	    #print cc
-	    # How many reactions/metabolites?  What is module's score?
-	    no_rxns = 0
-	    no_mets = 0
-	    module_score = 0
-	    for node in cc:
-		module_score += G.node[node]['score']    
-		if G.node[node]['type'] == 'reaction':
-		    no_rxns += 1
-		else:
-		    no_mets += 1
-	    #print 'mets:rxns - %d:%d' % (no_mets, no_rxns)
-	    #print 'Module score: %f.' % (module_score)
+	#print cc
+	# How many reactions/metabolites?  What is module's score?
+	no_rxns = 0
+	no_mets = 0
+	module_score = 0
+	for node in cc:
+	    module_score += G.node[node]['score']    
+	    if G.node[node]['type'] == 'reaction':
+		no_rxns += 1
+	    else:
+		no_mets += 1
+	#print 'mets:rxns - %d:%d' % (no_mets, no_rxns)
+	#print 'Module score: %f.' % (module_score)
+	
+	if module_score < 0:
+	    cc_pval = 1
+	else:
+	    no_pos_scores += 1
+	    print no_pos_scores
 	    
 	    # Do sampling
 	    #print 'Sample scores:\n'
@@ -639,18 +645,22 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
 		if score >= module_score:
 		    score_higher_count += 1
 	    cc_pval = score_higher_count / float(P)
-	else:
-	    cc_pval = 1
-	#print 'p-value: %f\n' % (cc_pval)
-        cc_pvals.append(cc_pval)
-	cc_name = frozenset(cc)
-        pvals_dict[cc_name] = cc_pval
 	
+	    cc_pvals.append(cc_pval)
+	    cc_name = frozenset(cc)
+	    pvals_dict[cc_name] = cc_pval
+	    print('cc_name: ' + str(cc_name) + '. pval: ' + str(cc_pval) + '. score: ' + str(module_score) + '\n')
 	    
+    print 'new modules:\n'
     scores, cc_out = get_graph_scores(H, M)
+    print len(cc_out)
+    print no_pos_scores
     pvals_ordered = []
-    for cc_sorted in cc_out:
+    for id, cc_sorted in enumerate(cc_out):
+	if scores[id] < 0:
+	    break
 	cc_sorted_set = frozenset(cc_sorted)
+	print('cc_name: ' + str(cc_sorted) + '. pval: ' + str(pvals_dict[cc_sorted_set]) + '\n')
 	pvals_ordered.append(pvals_dict[cc_sorted_set])
     
     # Do correction for multiple testing using Benjamini-Hochberg
