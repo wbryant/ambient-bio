@@ -1,5 +1,5 @@
 """
-AMBIENT v0.3: Active Modules for Bipartite Networks
+AMBIENT v0.4: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
@@ -137,8 +137,8 @@ from libsbml import *
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
 def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1):
-    """Find high scoring modules in a bipartite metabolic network Q."""
-
+    """Find high scoring modules in a bipartite metabolic network Q."""   
+    
     G = Q.to_undirected()
     q = len(G.edges())/50
     
@@ -219,6 +219,20 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     count_score_improvements = 0
     count_score_imps_per_round = 0
     print 'Current s_H: %8.2f %8.2f %8.2f' % (sumpos(s_H), s_H[0], s_H[-1])
+    
+    # Store run details in dictionary expt_details
+    expt_details = {}
+    expt_details['name'] = expt_name
+    expt_details['N'] = N
+    expt_details['M'] = M
+    expt_details['dir'] = dir
+    expt_details['adaptive_interval'] = adaptive_interval
+    expt_details['score_change_ratio'] = score_change_ratio
+    expt_details['intervals_cutoff'] = intervals_cutoff
+    expt_details['init_edges'] = H_edges
+    expt_details['init_temp'] = T
+    expt_details['init_ntoggles'] = n_toggles
+    expt_details['k'] = k
     
     #Run through N steps of this algorithm
     print 'Begin annealing ...'
@@ -311,6 +325,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     d['H'] = H
     d['scores'] = scores
     d['cc_out'] = cc_out
+    d['expt_details'] = expt_details
     d.close()
     print 'Python outputs written to %s' % (cc([expt_name, '.dat']))
     
@@ -721,7 +736,11 @@ def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
     """Export all significant modules to a flat file tsv table."""
     f = open(cc([expt_name,'.tsv']),'w')
     for idx, ccomp in enumerate(ccomps):
-	if qvals[idx] <= q_cutoff:
+	if idx >= len(qvals):
+	    qval = 1
+	else:
+	    qval = qvals[idx]
+	if qval <= q_cutoff:
 	    f.write('#Module ' + str(idx+1) + ' - q-value = ' + str(qvals[idx]) + ', no. of nodes: ' + str(len(ccomp)) + '.\n')
 	    for node in ccomp:
 		n = G.node[node]
