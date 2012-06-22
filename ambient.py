@@ -664,9 +664,9 @@ def get_module_pvalues(H, G, M = 1000, P = 10000, scores = -1):
 	    cc_pvals.append(cc_pval)
 	    cc_name = frozenset(cc)
 	    pvals_dict[cc_name] = cc_pval
-	    print('cc_name: ' + str(cc_name) + '. pval: ' + str(cc_pval) + '. score: ' + str(module_score) + '\n')
+	    #print('cc_name: ' + str(cc_name) + '. pval: ' + str(cc_pval) + '. score: ' + str(module_score) + '\n')
 	    
-    print 'new modules:\n'
+    #print 'new modules:\n'
     scores, cc_out = get_graph_scores(H, M)
     print len(cc_out)
     print no_pos_scores
@@ -675,7 +675,7 @@ def get_module_pvalues(H, G, M = 1000, P = 10000, scores = -1):
 	if scores[id] < 0:
 	    break
 	cc_sorted_set = frozenset(cc_sorted)
-	print('cc_name: ' + str(cc_sorted) + '. pval: ' + str(pvals_dict[cc_sorted_set]) + '\n')
+	#print('cc_name: ' + str(cc_sorted) + '. pval: ' + str(pvals_dict[cc_sorted_set]) + '\n')
 	pvals_ordered.append(pvals_dict[cc_sorted_set])
     
     # Do correction for multiple testing using Benjamini-Hochberg
