@@ -16,7 +16,7 @@ import shelve
 import argparse
 from libsbml import *
 
-def export_ambient_to_SBML(G, infile, outfile, nodes = -1):
+def export_ambient_to_SBML(G, infile, outfile, new_id, nodes = -1):
     """Export a set of nodes from an AMBIENT network to SBML."""
     if nodes == -1:
         nodes = G.nodes()
@@ -40,18 +40,32 @@ def export_ambient_to_SBML(G, infile, outfile, nodes = -1):
     document = reader.readSBMLFromFile(infile)
     model = document.getModel()
     
-    ##For each node, if it is not in the export list, delete it
-    #for metabolite in model.getListOfSpecies():
-    #    sbml_id = metabolite.getId()
-    #    if sbml_id not in export_ids:
-    #        model.removeSpecies(sbml_id)
-    #
-    #for reaction in model.getListOfReactions():
-    #    sbml_id = reaction.getId()
-    #    if sbml_id not in export_ids:
-    #        model.removeReaction(sbml_id)
-    #
-    SBMLWriter.writeSBMLToFile(model, outfile)
+    #For each node, if it is not in the export list, delete it
+    mets_to_remove = []
+    for metabolite in model.getListOfSpecies():
+        sbml_id = metabolite.getId()
+        if sbml_id not in export_ids:
+            mets_to_remove.append(sbml_id)
+        else:
+            print sbml_id
+    for metid in mets_to_remove:
+        model.removeSpecies(metid)
+    
+    rxns_to_remove = []
+    for reaction in model.getListOfReactions():
+        sbml_id = reaction.getId()
+        if sbml_id not in export_ids:
+            rxns_to_remove.append(sbml_id)
+        else:
+            print sbml_id
+    for rxnid in rxns_to_remove:
+        model.removeReaction(rxnid)
+    
+    #Export model
+    model.setId(new_id)
+    document.setModel(model)
+    writer = SBMLWriter()
+    writer.writeSBMLToFile(document, outfile)
     
     return export_ids
 
