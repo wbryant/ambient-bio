@@ -1,5 +1,5 @@
 """
-AMBIENT v0.4: Active Modules for Bipartite Networks
+AMBIENT v0.6: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
