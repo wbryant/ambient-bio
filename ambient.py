@@ -1,5 +1,5 @@
 """
-AMBIENT v0.3: Active Modules for Bipartite Networks
+AMBIENT v0.4: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
@@ -463,7 +463,7 @@ def import_SBML_to_bipartite(SBML_filename):
         notes = reaction.getNotesString()
         
         genelist = []
-        genes = re.search('GENE_ASSOCIATION\:([^<]+)<',notes)
+        genes = re.search('GENE[_ ]ASSOCIATION\:([^<]+)<',notes)
         if genes is not None:
             for gene in re.finditer('([^\s\&\|\(\)]+)', genes.group(1)):
                 if not gene.group(1) == 'and' and not gene.group(1) == 'or':
@@ -980,8 +980,10 @@ def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist'):
 		    all_scores.append(mean_score)
                 else:
                     G.node[node]['no_data'] = True
+		    mean_score = 0
             else:
                 G.node[node]['no_data'] = True
+		mean_score = 0
 	    G.node[node]['score'] = float(mean_score)
 	
     # Assign median score to all reactions without scores    
