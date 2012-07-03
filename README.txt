@@ -16,9 +16,9 @@ The example can be found in /example for Saccharomyces cerevisiae diauxie (baker
 
 Basic command line usage, from the /example directory type:
 
-'python ambient.py -m yeast_4.02.xml -s SCE_scores.txt -e SCE_pos_log_run -N 100000 -P 10000'
+'python ../ambient.py -m yeast_4.02.xml -s SCE_scores.txt -e SCE_pos_log_run -N 1000000 -P 10000'
 
-which runs the algorithm for 100,000 steps and bases the empirical significance values for the found modules on 10,000 random samples per module.
+which runs the algorithm for up to 1,000,000 steps and bases the empirical significance values for the found modules on 10,000 random samples per module.  This may take several hours, depending on the processor speed of the computer used.
 
 FULL COMMAND LINE USAGE
 
