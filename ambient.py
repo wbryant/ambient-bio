@@ -469,7 +469,7 @@ def import_SBML_to_bipartite(SBML_filename):
                 if not gene.group(1) == 'and' and not gene.group(1) == 'or' and not gene.group(1) == 'none':
                     genelist.append(gene.group(1))   
         G.node[node_idx]['genelist'] = list(set(genelist))
-        
+	
         # Cycle through all reactants and products and add edges
 	#print 'REACTANTS:'
         for reactant in reaction.getListOfReactants():
@@ -780,7 +780,7 @@ def cc(strings):
     return str_out
  
 
-# Read p-values for reactions and add values to relevant nodes.  Assign the
+# Read scores for reactions and add values to relevant nodes.  Assign the
 # median value of changes to each reaction for which there is no score.
 def read_rxn_scores(G, filename):
     """Import scores for reactions in C{G} from file C{filename}."""
@@ -991,7 +991,8 @@ def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist'):
     for node in G.nodes():
         if G.node[node]['type'] == 'reaction':
             if G.node[node]['no_data'] == True:
-		G.node[node]['score'] == median_score
+		G.node[node]['score'] = median_score
+    	
     return G
 
 
