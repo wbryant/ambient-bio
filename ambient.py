@@ -466,7 +466,7 @@ def import_SBML_to_bipartite(SBML_filename):
         genes = re.search('GENE[_ ]ASSOCIATION\:([^<]+)<',notes)
         if genes is not None:
             for gene in re.finditer('([^\s\&\|\(\)]+)', genes.group(1)):
-                if not gene.group(1) == 'and' and not gene.group(1) == 'or':
+                if not gene.group(1) == 'and' and not gene.group(1) == 'or' and not gene.group(1) == 'none':
                     genelist.append(gene.group(1))   
         G.node[node_idx]['genelist'] = list(set(genelist))
         
