@@ -47,9 +47,13 @@ optional arguments:
 
 OUTPUTS
 
-EXPT_NAME.LOG which contains details of the edge toggling events that affected the top scoring module, which gives an indication of how the algorithm progressed.
+EXPT_NAME.graphml which is a GraphML file for visualisation.
+
 EXPT_NAME.DAT which is a shelf file created by the shelve.open() command in the shelve module, which contains the three main outputs and the network used for the simulated annealing.
+
 EXPT_NAME.TSV which is a table of all nodes in all significant modules (q<0.05).
+
+N.B. The Python shelve module may behave slightly differently depending on which system it is run on.  In certain cases it will produce 3 files, with the extensions '.dat', '.dir' and '.bak'.  The file with '.dat' (or '.dat.dat') is the full shelve file and can be used with shelve.
 
 GENEPIX DATA
 
