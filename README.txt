@@ -1,7 +1,7 @@
-﻿AMBIENT v0.6.1: Active Modules for Bipartite Networks
+﻿AMBIENT v0.6.3: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
-July 2012.  This is a beta release
+July 2012.
 
 GETTING STARTED
 
