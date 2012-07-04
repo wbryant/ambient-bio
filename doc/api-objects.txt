@@ -47,6 +47,7 @@ ambient.logical_xor	ambient-module.html#logical_xor
 ambient.typeNA	ambient-module.html#typeNA
 ambient.multiply	ambient-module.html#multiply
 ambient.SHIFT_UNDERFLOW	ambient-module.html#SHIFT_UNDERFLOW
+ambient.output_results_table	ambient-module.html#output_results_table
 ambient.invert	ambient-module.html#invert
 ambient.cast	ambient-module.html#cast
 ambient.mgrid	ambient-module.html#mgrid
