@@ -1,14 +1,17 @@
-﻿AMBIENT v0.4
+﻿AMBIENT v0.6.1: Active Modules for Bipartite Networks
+Copyright 2012 William A. Bryant and John W. Pinney
 
-June 2012.  This is a beta release
+July 2012.  This is a beta release
 
 GETTING STARTED
 
 Language: Python
-Non-standard requirements: libSBML and NetworkX
-AMBIENT has been tested and works with Python v2.7, libSBML v5.3.0, NetworkX v1.6
+Non-standard requirements: libSBML, NetworkX, NumPy
+AMBIENT has been tested and works with Python v2.7, libSBML v5.3.0, NetworkX v1.6, NumPy v1.6.1
 
-Installation requires only importing the module into Python: 'import ambient'.  Details on use of the functions in the module can be found in the module file, including a short tutorial and information on customising the simulated annealing algorithm.  The program can also be run without installation from the command line (as long as ambient.py is in the path).
+Use within a Python shell requires the command: 'import ambient'.  Installation is not required for using AMBIENT at the commandline.
+
+Details on use of the functions in the module can be found in the module file, including a short tutorial and information on customising the simulated annealing algorithm.  The program can also be run without installation from the command line (as long as ambient.py is in the path).
  
 EXAMPLE
 
