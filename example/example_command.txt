@@ -1,1 +1,1 @@
-python ambient.py -m yeast_4.02.xml -s SCE_scores.txt -e SCE_pos_log_run -N 100000 -P 1000
+﻿python ambient.py -m yeast_4.02.xml -s SCE_scores.tsv -e SCE_pos_log_run -N 100000 -P 1000
