@@ -1,5 +1,5 @@
 """
-AMBIENT v0.6.3: Active Modules for Bipartite Networks
+AMBIENT v0.7: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
@@ -136,9 +136,9 @@ from libsbml import *
 
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
-def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 6, H_edges = -1):
-    """Find high scoring modules in a bipartite metabolic network Q."""
-
+def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1):
+    """Find high scoring modules in a bipartite metabolic network Q."""   
+    
     G = Q.to_undirected()
     q = len(G.edges())/50
     
@@ -179,14 +179,15 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     # Estimate typical score changes and set beginning temperature
     module_score_dict = {}
     s_H_sample = []
-    for i in range(100):
+    print 'Determining initial value for T ...'
+    for i in range(500):
 	H_edges = rand.sample(G.edges(),q)
 	H_edges = set(H_edges)
 	H = edges_to_graph(G, H_edges)
 	s_H, _ = get_graph_scores(H, M, score_dict, module_score_dict)
 	s_H_sample.append(max(s_H))
     T = max(s_H_sample) - min(s_H_sample)
-    T = T/5.0
+    T = T/10.0
     print 'Initial value of T: %4.4f.' % (T)
     
     # Set initial number of edges to toggle at each step
@@ -212,19 +213,33 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     interval_cutoff_reached = 0
     count_attempts = 0
     score_sum = 0.0
-    score_win_prev = adaptive_interval*(sum(s_H))
+    score_win_prev = adaptive_interval*(sumpos(s_H))
     keep_count = 0
     t1 = time()
     count_score_improvements = 0
     count_score_imps_per_round = 0
-    print 'Current s_H: %8.2f %8.2f %8.2f' % (sum(s_H), s_H[0], s_H[-1])
+    print 'Current s_H: %8.2f %8.2f %8.2f' % (sumpos(s_H), s_H[0], s_H[-1])
+    
+    # Store run details in dictionary expt_details
+    expt_details = {}
+    expt_details['name'] = expt_name
+    expt_details['N'] = N
+    expt_details['M'] = M
+    expt_details['dir'] = dir
+    expt_details['adaptive_interval'] = adaptive_interval
+    expt_details['score_change_ratio'] = score_change_ratio
+    expt_details['intervals_cutoff'] = intervals_cutoff
+    expt_details['init_edges'] = H_edges
+    expt_details['init_temp'] = T
+    expt_details['init_ntoggles'] = n_toggles
+    expt_details['k'] = k
     
     #Run through N steps of this algorithm
     print 'Begin annealing ...'
     for i in range(1, N):
 	
 	count_attempts += 1
-	score_sum += sum(s_H)
+	score_sum += sumpos(s_H)
 	
         #Randomly change the network by a set of edges
         toggle_edges = rand.sample(G_edges,n_toggles)
@@ -234,22 +249,22 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
         # Get scores for the new subgraph
         s_H_n, _ = get_graph_scores(H_n, M, score_dict, module_score_dict)
 	
-	#Compare s scores to decide whether to keep the change
-        keep_change = compare_graph_scores(s_H_n, s_H, T)
-        if sum(s_H_n) > sum(s_H):
+	#For adaptive annealing, check sum of positive scoring modules and count improvements
+        if sumpos(s_H_n) > sumpos(s_H):
 	    count_score_improvements += 1
 	    count_score_imps_per_round += 1
 	
+	#Compare s scores to decide whether to keep the change
+        keep_change = compare_graph_scores(s_H_n, s_H, T)
         if keep_change == 1:
 	    keep_count += 1
-            # update scores
+            # update scores to new state
             s_H = s_H_n
             toggle_subgraph_edges(H, H_edges, G, toggle_edges)
         else:
+	    # revert to previous state
             toggle_subgraph_edges(H_n, H_n_edges, G, toggle_edges)
 	    
-	
-	
         # Keep user informed of progress and approximate time until completion
         if i/adaptive_interval == i/float(adaptive_interval):
 	    
@@ -282,12 +297,12 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    count_score_imps_per_round = 0
 	    if interval_cutoff_reached == 1:
 		print 'Interval cutoff reached, moving to new temperature.'
-	    interval_cutoff_reached = 0
+		interval_cutoff_reached = 0
 	    print 'Temperature for following: %5.4f.' % (T)
 	    print 'Number of toggles per step for following: %d.' % (n_toggles)
 	    print 'Length of module_score_dict: %d.' % (len(module_score_dict))
-	    print 'Current score of top 20: %5.4f.' % (sum(s_H[0:20]))
-	    print 'Current s_H sum: %4.2f' % (sum(s_H))
+	    print 'Current score of top 20: %5.4f.' % (sumpos(s_H[0:20]))
+	    print 'Current s_H sum: %4.2f' % (sumpos(s_H))
 	    print 'Current highest s_H: %4.2f' % (s_H[0])
 	    print 'Current second highest s_H: %4.2f\n' % (s_H[1])
 	    
@@ -310,13 +325,19 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     d['H'] = H
     d['scores'] = scores
     d['cc_out'] = cc_out
+    d['expt_details'] = expt_details
     d.close()
     print 'Python outputs written to %s' % (cc([expt_name, '.dat']))
     
     return G, H, scores, cc_out
 
-
-
+#Find sum of positive values in a list
+def sumpos(list):
+    listpos = 0
+    for entry in list:
+	if entry > 0:
+	    listpos += entry
+    return listpos
    
 # This function scores samples from a bipartite met/rxn graph by summing
 # reaction scores and summing metabolite weights and returns the sum 
@@ -577,8 +598,8 @@ def edges_to_graph(G, H_edges):
 
 
 # Calculate p-values for each module in H (being a subgraph of G), or if H is a list of edges, for each module induced by those edges in G
-def get_module_pvalues(H, G, M = 1000, P = 10000):
-    """Find significance values for all modules (connected components) in a subgraph of a reaction/metabolite bipartite network."""
+def get_module_pvalues(H, G, M = 1000, P = 10000, scores = -1):
+    """Find significance values for all modules with a positive score (connected components) in a subgraph of a reaction/metabolite bipartite network."""
     print 'Calculating p-values and q-values for modules ...'
     r_scores = []
     m_scores = []
@@ -598,21 +619,27 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
     
     pvals_dict = {}
     cc_pvals = []
+    no_pos_scores = 0
     for cc in H_ccs:
-	if len(cc) < 400:
-	    #print cc
-	    # How many reactions/metabolites?  What is module's score?
-	    no_rxns = 0
-	    no_mets = 0
-	    module_score = 0
-	    for node in cc:
-		module_score += G.node[node]['score']    
-		if G.node[node]['type'] == 'reaction':
-		    no_rxns += 1
-		else:
-		    no_mets += 1
-	    #print 'mets:rxns - %d:%d' % (no_mets, no_rxns)
-	    #print 'Module score: %f.' % (module_score)
+	#print cc
+	# How many reactions/metabolites?  What is module's score?
+	no_rxns = 0
+	no_mets = 0
+	module_score = 0
+	for node in cc:
+	    module_score += G.node[node]['score']    
+	    if G.node[node]['type'] == 'reaction':
+		no_rxns += 1
+	    else:
+		no_mets += 1
+	#print 'mets:rxns - %d:%d' % (no_mets, no_rxns)
+	#print 'Module score: %f.' % (module_score)
+	
+	if module_score < 0:
+	    cc_pval = 1
+	else:
+	    no_pos_scores += 1
+	    print no_pos_scores
 	    
 	    # Do sampling
 	    #print 'Sample scores:\n'
@@ -633,18 +660,22 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
 		if score >= module_score:
 		    score_higher_count += 1
 	    cc_pval = score_higher_count / float(P)
-	else:
-	    cc_pval = 1
-	#print 'p-value: %f\n' % (cc_pval)
-        cc_pvals.append(cc_pval)
-	cc_name = frozenset(cc)
-        pvals_dict[cc_name] = cc_pval
 	
+	    cc_pvals.append(cc_pval)
+	    cc_name = frozenset(cc)
+	    pvals_dict[cc_name] = cc_pval
+	    #print('cc_name: ' + str(cc_name) + '. pval: ' + str(cc_pval) + '. score: ' + str(module_score) + '\n')
 	    
+    #print 'new modules:\n'
     scores, cc_out = get_graph_scores(H, M)
+    print len(cc_out)
+    print no_pos_scores
     pvals_ordered = []
-    for cc_sorted in cc_out:
+    for id, cc_sorted in enumerate(cc_out):
+	if scores[id] < 0:
+	    break
 	cc_sorted_set = frozenset(cc_sorted)
+	#print('cc_name: ' + str(cc_sorted) + '. pval: ' + str(pvals_dict[cc_sorted_set]) + '\n')
 	pvals_ordered.append(pvals_dict[cc_sorted_set])
     
     # Do correction for multiple testing using Benjamini-Hochberg
@@ -705,7 +736,11 @@ def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
     """Export all significant modules to a flat file tsv table."""
     f = open(cc([expt_name,'.tsv']),'w')
     for idx, ccomp in enumerate(ccomps):
-	if qvals[idx] <= q_cutoff:
+	if idx >= len(qvals):
+	    qval = 1
+	else:
+	    qval = qvals[idx]
+	if qval <= q_cutoff:
 	    f.write('#Module ' + str(idx+1) + ' - q-value = ' + str(qvals[idx]) + ', no. of nodes: ' + str(len(ccomp)) + '.\n')
 	    for node in ccomp:
 		n = G.node[node]
