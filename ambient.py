@@ -1,5 +1,5 @@
 """
-AMBIENT v0.7: Active Modules for Bipartite Networks
+AMBIENT v1.1: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
@@ -147,6 +147,17 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
         for node in G.nodes():
             if G.node[node]['type'] == 'reaction':
                 G.node[node]['score'] = -1*G.node[node]['score']
+    
+    # Re-zero reaction scores
+    rxn_score_list = []
+    for i in G.nodes():
+	node = G.node[i]
+	if node['type'] == 'reaction':
+	    rxn_score_list.append(node['score'])
+    median_score = median(rxn_score_list)
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    G.node[node]['score'] -= median_score
     
     # Calculate k
     s_tot_m = 0
