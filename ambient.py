@@ -765,9 +765,6 @@ def gml_export(K, filename):
                     G.node[node][attr] = G.node[node][attr][0]
                 else:
                     G.node[node][attr] = 'none'
-    for node in G.nodes():
-	for attr in G.node[node]:
-	    G.node[node][attr] = str(G.node[node][attr])
 
     nx.write_graphml(G, filename)
     print 'Graph exported.'
@@ -996,6 +993,7 @@ def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist'):
         if G.node[node]['type'] == 'reaction':
             if G.node[node]['no_data'] == True:
 		G.node[node]['score'] = median_score
+	    G.node[node]['score'] = float(G.node[node]['score'])
     	
     return G
 
