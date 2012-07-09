@@ -811,6 +811,9 @@ def gml_export(K, filename):
                     G.node[node][attr] = G.node[node][attr][0]
                 else:
                     G.node[node][attr] = 'none'
+    for node in G.nodes():
+	for attr in G.node[node]:
+	    G.node[node][attr] = str(G.node[node][attr])
     nx.write_graphml(G, filename)
     print 'Graph exported.'
     return G
@@ -1116,7 +1119,7 @@ if __name__ == "__main__":
 	sys.exit()
     expt = args.expt_name
     
-    # If M is not given, logarithmic scoring is used (and M is set to 1000)
+    # If M is not given, logarithmic scoring is used
     if args.M == -1:
 	print 'Using logarithmic scoring.'
     
