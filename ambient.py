@@ -180,7 +180,11 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     # Make metabolite 'score' = -k*weight and sum all scores
     for node in G.nodes():
 	if G.node[node]['type'] == 'metabolite':
-	    G.node[node]['score'] = -k*G.node[node]['weight']
+	    G.node[node]['score'] = float(-k*G.node[node]['weight'])
+    
+    # Ensure all ndoe scores are of type 'float'
+    for node in G.nodes():
+	G.node[node]['score'] = float(G.node[node]['score'])
     
     # Store all scores in a dictionary for each node
     score_dict = {}
@@ -350,10 +354,9 @@ def sumpos(list):
 	    listpos += entry
     return listpos
    
-# This function scores samples from a bipartite met/rxn graph by summing
-# reaction scores and summing metabolite weights and returns the sum 
-# Z = z_r - (k * z_m) for all M of the highest scoring (connected) components.
-# For improved annealing the top M s-scores must be returned from s_score.
+# This function scores a bipartite met/rxn graph by summing
+# reaction and metabolite scores and returns the sum 
+# for all M of the highest scoring (connected) components.
 #@profile
 def get_graph_scores(G, M, score_dict = {}, module_score_dict = {}, score = 'score'):
     """Get top C{M} module scores in network C{G}."""
@@ -526,8 +529,8 @@ def import_SBML_to_bipartite(SBML_filename):
 
 # This function takes two sets of nodes from a given graph, from positive
 # scores and negative scores respectively, and classifies all of the nodes
-# according to those sets (0 if not a member of any of them).
-def classify_nodes_ud(G, set_list1, set_list2, attribute):
+# according to those sets (0 if not a member of any of them).  This will only
+def classify_nodes_ud(G, set_list1, qvals1, set_list2, qvals2, q_cutoff = 0.05, attribute = 'Classification'):
     """Add attribute C{attribute} to network C{G} indicating two sets of module members from C{set_list1} and C{set_list2}."""
     G_out = G.copy()
     for node in G_out.nodes():
@@ -536,15 +539,17 @@ def classify_nodes_ud(G, set_list1, set_list2, attribute):
     	else:
     		G_out.node[node][attribute] = 0.0
     class_idx = 0.0
-    for module in set_list1:
-        class_idx += 1
-        for node in module:
-            G_out.node[node][attribute] = class_idx
+    for idx, module in enumerate(set_list1):
+	class_idx += 1
+	if qvals1[idx] <= q_cutoff:
+	    for node in module:
+		G_out.node[node][attribute] = class_idx
     class_idx = 0.0
-    for module in set_list2:
+    for idx, module in enumerate(set_list2):
         class_idx -= 1
-        for node in module:
-            G_out.node[node][attribute] = class_idx
+	if qvals2[idx] <= q_cutoff:
+	    for node in module:
+	        G_out.node[node][attribute] = class_idx
     return G_out
 
 
@@ -609,7 +614,7 @@ def edges_to_graph(G, H_edges):
 
 
 # Calculate p-values for each module in H (being a subgraph of G), or if H is a list of edges, for each module induced by those edges in G
-def get_module_pvalues(H, G, M = 1000, P = 10000, scores = -1):
+def get_module_pvalues(H, G, P = 10000, M = 1000, scores = -1):
     """Find significance values for all modules with a positive score (connected components) in a subgraph of a reaction/metabolite bipartite network."""
     print 'Calculating p-values and q-values for modules ...'
     r_scores = []
@@ -1039,7 +1044,7 @@ def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist'):
         if G.node[node]['type'] == 'reaction':
             if G.node[node]['no_data'] == True:
 		G.node[node]['score'] = median_score
-	G.node[node]['score'] = float(G.node[node]['score'])
+	    G.node[node]['score'] = float(G.node[node]['score'])
     	
     return G
 
@@ -1126,7 +1131,7 @@ if __name__ == "__main__":
     G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
     
     #Get significance for each module
-    _, _, _, qvals = get_module_pvalues(H, G, args.M, args.P)
+    _, _, _, qvals = get_module_pvalues(H, G, args.P, args.M)
     
     #Output flat file of significant results
     output_results_table(expt, G, ccomps, qvals)
