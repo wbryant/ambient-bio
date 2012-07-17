@@ -167,7 +167,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     no_m = 0
     for node in G.nodes():
         if G.node[node]['type'] == 'metabolite':
-            s_tot_m += G.node[node]['weight']
+            s_tot_m -= G.node[node]['score']
             no_m += 1
         else:
             G.node[node]
@@ -178,12 +178,12 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     s_mean_m = s_tot_m/no_m
     k = s_mean_r/s_mean_m
     
-    # Make metabolite 'score' = -k*weight and sum all scores
+    # Normalise all metabolite scores
     for node in G.nodes():
 	if G.node[node]['type'] == 'metabolite':
-	    G.node[node]['score'] = float(-k*G.node[node]['weight'])
+	    G.node[node]['score'] = float(k*G.node[node]['score'])
     
-    # Ensure all ndoe scores are of type 'float'
+    # Ensure all node scores are of type 'float'
     for node in G.nodes():
 	G.node[node]['score'] = float(G.node[node]['score'])
     
@@ -524,6 +524,7 @@ def import_SBML_to_bipartite(SBML_filename):
     for node in G.nodes():
         if G.node[node]['type'] == 'metabolite':
             G.node[node]['weight'] = float(G.degree(node))
+	    G.node[node]['score'] = -1*float(G.degree(node))
     print 'Finished model import.'
     return G
 
@@ -553,12 +554,19 @@ def classify_nodes_ud(G, set_list1, qvals1, set_list2, qvals2, q_cutoff = 0.05, 
 	        G_out.node[node][attribute] = class_idx
     return G_out
 
-
-# This function takes a set of nodes from a given graph and classifies all of
+# This function takes a list of lists of nodes from a given graph and classifies all of
 # the nodes according to those sets (0 if not a member of any of them) in node
-# attribute 'attribute'.
-def classify_nodes_single(G, set_list, attribute):
+# attribute 'attribute'.  If q-values are given, only those modules with
+# q-value < q-cutoff are classified
+def classify_nodes_single(G, set_list, attribute, q_vals = -1, q_cutoff = 0.05):
     """Add attribute C{attribute} to network C{G} indicating sets of module members from C{set_list}."""
+    
+    sig_mods = []
+    if q_vals != -1:
+	for idx, q_val in enumerate(q_vals):
+            if q_val <= q_cutoff:
+		sig_mods.append(idx)
+    
     G_out = G.copy()
     for node in G_out.nodes():
     	if G_out.node[node]['type'] == 'metabolite':
@@ -566,15 +574,15 @@ def classify_nodes_single(G, set_list, attribute):
     	else:
     		G_out.node[node][attribute] = 0.0
     class_idx = 0.0
-    for nodes in set_list:
+    for idx, nodes in enumerate(set_list):
         class_idx += 1
-	if type(nodes) == int:
-	    G_out.node[nodes][attribute] = class_idx
-	else:
-	    for node in nodes:
-	        G_out.node[node][attribute] = class_idx
+	if idx in sig_mods or q_vals == -1:
+	    if type(nodes) == int:
+	        G_out.node[nodes][attribute] = class_idx
+	    else:
+	        for node in nodes:
+	            G_out.node[node][attribute] = class_idx
     return G_out
-
 
 # Take a network, a subnetwork and an edge from the network.  If the edge exists
 # in the subnetwork, remove it, otherwise add it and nodes connected to it that
@@ -685,8 +693,6 @@ def get_module_pvalues(H, G, P = 10000, M = 1000, scores = -1):
 	    
     #print 'new modules:\n'
     scores, cc_out = get_graph_scores(H, M)
-    print len(cc_out)
-    print no_pos_scores
     pvals_ordered = []
     for id, cc_sorted in enumerate(cc_out):
 	if scores[id] < 0:
