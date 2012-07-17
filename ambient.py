@@ -516,11 +516,21 @@ def classify_nodes_ud(G, set_list1, set_list2, attribute):
     return G_out
 
 
-# This function takes a set of nodes from a given graph and classifies all of
+# This function takes a list of lists of nodes from a given graph and classifies all of
 # the nodes according to those sets (0 if not a member of any of them) in node
-# attribute 'attribute'.
-def classify_nodes_single(G, set_list, attribute):
+# attribute 'attribute'.  If q-values are given, only those modules with
+# q-value < q-cutoff are classified
+def classify_nodes_single(G, set_list, attribute, q_vals = -1, q_cutoff = 0.05):
     """Add attribute C{attribute} to network C{G} indicating sets of module members from C{set_list}."""
+    
+    sig_mods = []
+    for idx, q_val in enumerate(q_vals):
+        if q_vals != -1:
+	    if q_val <= q_cutoff:
+		sig_mods.append(idx)
+	else:
+	    sig_mods.append(idx)
+    
     G_out = G.copy()
     for node in G_out.nodes():
     	if G_out.node[node]['type'] == 'metabolite':
@@ -528,13 +538,14 @@ def classify_nodes_single(G, set_list, attribute):
     	else:
     		G_out.node[node][attribute] = 0.0
     class_idx = 0.0
-    for nodes in set_list:
+    for idx, nodes in enumerate(set_list):
         class_idx += 1
-	if type(nodes) == int:
-	    G_out.node[nodes][attribute] = class_idx
-	else:
-	    for node in nodes:
-	        G_out.node[node][attribute] = class_idx
+	if idx in sig_mods:
+	    if type(nodes) == int:
+	        G_out.node[nodes][attribute] = class_idx
+	    else:
+	        for node in nodes:
+	            G_out.node[node][attribute] = class_idx
     return G_out
 
 
