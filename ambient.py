@@ -524,12 +524,10 @@ def classify_nodes_single(G, set_list, attribute, q_vals = -1, q_cutoff = 0.05):
     """Add attribute C{attribute} to network C{G} indicating sets of module members from C{set_list}."""
     
     sig_mods = []
-    for idx, q_val in enumerate(q_vals):
-        if q_vals != -1:
-	    if q_val <= q_cutoff:
+    if q_vals != -1:
+	for idx, q_val in enumerate(q_vals):
+            if q_val <= q_cutoff:
 		sig_mods.append(idx)
-	else:
-	    sig_mods.append(idx)
     
     G_out = G.copy()
     for node in G_out.nodes():
@@ -540,13 +538,14 @@ def classify_nodes_single(G, set_list, attribute, q_vals = -1, q_cutoff = 0.05):
     class_idx = 0.0
     for idx, nodes in enumerate(set_list):
         class_idx += 1
-	if idx in sig_mods:
+	if idx in sig_mods or q_vals == -1:
 	    if type(nodes) == int:
 	        G_out.node[nodes][attribute] = class_idx
 	    else:
 	        for node in nodes:
 	            G_out.node[node][attribute] = class_idx
     return G_out
+
 
 
 # Take a network, a subnetwork and an edge from the network.  If the edge exists
