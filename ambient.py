@@ -133,6 +133,7 @@ import re
 import shelve
 import argparse
 from libsbml import *
+from copy import *
 
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
@@ -1081,6 +1082,17 @@ def calc_bh_values(p_values, num_total_tests = -1):
         bh_values.append(bh_value)
     return bh_values
 
+def inv_transform(G_old, mbc_table):
+    """Transform all known metabolite scores by S_met/(1+|mbc_met|)."""
+    G = G_old.copy()
+    for node in G.nodes():
+        if G.node[node]['type'] == 'metabolite':
+            for met in mbc_table:
+                G.node[node]['score_bak'] = deepcopy(G.node[node]['score'])
+                if G.node[node]['name'] == met[0]:
+                    G.node[node]['score'] = G.node[node]['score']/(1+abs(float(met[1])))
+                    break
+    return G       
 
 # Script function - inputs required are:
 if __name__ == "__main__":
@@ -1104,6 +1116,9 @@ if __name__ == "__main__":
     #intervals_cutoff
     parser.add_argument('-c', action='store', dest='intervals_cutoff', type=int, default = 6, help='number of step intervals before automatic temperature reduction')
     
+    #Metabolomics values
+    parser.add_argument('-t', action='store', dest='metabolomics_file', help='input metabolomics data from a tsv to score metabolites')
+    
     
     args = parser.parse_args()
     
@@ -1123,9 +1138,18 @@ if __name__ == "__main__":
 	sys.exit()
     expt = args.expt_name
     
+    if not args.metabolomics_file is None:
+	print 'Metabolomics data given, integrating with weight scores.'
+	mbc_table = get_data_tsv(args.metabolomics_file)
+	G = inv_transform(G, mbc_table)
+    else:
+	print 'No metabolomics data given.'
+    
     # If M is not given, logarithmic scoring is used
     if args.M == -1:
 	print 'Using logarithmic scoring.'
+    else:
+	print 'Using limited module number scoring.'
     
     # Execute simulated annealing
     G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
