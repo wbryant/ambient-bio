@@ -337,7 +337,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     
     # Output results to backup file using shelve
     d = shelve.open(cc([expt_name, '.dat']))
-    d['G'] = G
+    d['G'] = Q
     d['H'] = H
     d['scores'] = scores
     d['cc_out'] = cc_out
