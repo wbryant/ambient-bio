@@ -806,7 +806,7 @@ def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
 #
 #1)  write_graphml does not support attributes as lists, so these are flattened for export,
 #2)  write_graphml does not export int type attributes, so ensure that all numbered attributes are floats.
-def gml_export(K, filename):
+def gml_export(K, filename, Cyto = -1):
     """Export bipartite graph C{K} in GraphML format to file C{filename}."""
     print 'Exporting graph to gml ...'
     G = K.copy()
@@ -824,7 +824,54 @@ def gml_export(K, filename):
                 else:
                     G.node[node][attr] = 'none'
 
-    nx.write_graphml(G, filename)
+    nx.write_graphml(G, 'temp.gml')
+    
+    # Write GraphML, when imported into Cytoscape, doesn't use attribute names,
+    # but just attribute IDs for identification.  Therefore to make it easier to
+    # use in Cytoscape, the IDs in the GraphML ile are converted to the names
+    # of the attributes.
+    
+    # Create dictionary of id/name pairs from the file
+    id_name = {}
+    f_in = open('temp.gml', 'r')
+    while True:
+        current_line = f_in.readline()
+        if len(current_line) == 0:
+            break
+	id_name_line = re.search('(^  <key.+)',current_line)
+	if id_name_line is not None:
+	    id = re.search('id="([^"]+)"', current_line)
+	    id = id.group(1)
+	    name = re.search('attr.name="([^"]+)"', current_line)
+	    name = name.group(1)
+	    id_name[id] = name
+    f_in.close()
+    
+    # For each line in the temporary GraphML check for ID mentions and replace them with names
+    f_in = open('temp.gml', 'r')
+    f_out = open(filename, 'w')
+    while True:
+        current_line = f_in.readline()
+        if len(current_line) == 0:
+            break
+	id_name_line = re.search('(^  <key.+)',current_line)
+	if id_name_line is not None:
+	    rep_line = re.search('(^.+id=")([^"]+)(".+$)',current_line)
+	    new_name = id_name[rep_line.group(2)]
+	    f_out.write(rep_line.group(1) + new_name + rep_line.group(3) + '\n')
+	else:
+	    rep_line = re.search('(^.+key=")([^"]+)(".+$)', current_line)
+	    if rep_line is not None:
+		print rep_line.group(0)
+		print rep_line.group(2)
+		new_name = id_name[rep_line.group(2)]
+		f_out.write(rep_line.group(1) + new_name + rep_line.group(3) + '\n')
+	    else:
+		f_out.write(current_line)
+    f_in.close()
+    f_out.close()
+    
+    
     print 'Graph exported.'
     return G
 
