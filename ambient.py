@@ -137,7 +137,7 @@ from copy import *
 
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
-def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1):
+def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1, T_init_div = 10, T_chn_factor = 0.8):
     """Find high scoring modules in a bipartite metabolic network Q."""   
     
     G = Q.to_undirected()
@@ -203,7 +203,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	s_H, _ = get_graph_scores(H, M, score_dict, module_score_dict)
 	s_H_sample.append(max(s_H))
     T = max(s_H_sample) - min(s_H_sample)
-    T = T/10.0
+    T = T/T_init_div
     print 'Initial value of T: %4.4f.' % (T)
     
     # Set initial number of edges to toggle at each step
@@ -290,7 +290,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
             
 	    ro_change = 100000*(score_sum-score_win_prev)/(adaptive_interval*score_win_prev)
 	    if abs(ro_change) < score_change_ratio or intervals_count == intervals_cutoff:
-		T = T*0.8
+		T = T*T_chn_factor
 	    	n_toggles = (n_toggles*8)/10
 		if n_toggles < 1:
 		    n_toggles = 1
@@ -808,7 +808,7 @@ def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
 #2)  write_graphml does not export int type attributes, so ensure that all numbered attributes are floats.
 def gml_export(K, filename, Cyto = -1):
     """Export bipartite graph C{K} in GraphML format to file C{filename}."""
-    print 'Exporting graph to gml ...'
+    print 'Exporting graph to GraphML ...'
     G = K.copy()
     for node in G.nodes():
         for attr in G.node[node]:
@@ -862,8 +862,6 @@ def gml_export(K, filename, Cyto = -1):
 	else:
 	    rep_line = re.search('(^.+key=")([^"]+)(".+$)', current_line)
 	    if rep_line is not None:
-		print rep_line.group(0)
-		print rep_line.group(2)
 		new_name = id_name[rep_line.group(2)]
 		f_out.write(rep_line.group(1) + new_name + rep_line.group(3) + '\n')
 	    else:
@@ -1172,6 +1170,11 @@ if __name__ == "__main__":
     #Metabolomics values
     parser.add_argument('-t', action='store', dest='metabolomics_file', help='input metabolomics data from a tsv to score metabolites')
     
+    #T_init_div
+    parser.add_argument('-T', action='store', dest='T_div', type=float, default=10, help='Temperature divisor to fix initial looseness of negative score acceptance')
+    
+    #T_chn_factor
+    parser.add_argument('-U', action='store', dest='T_mult', type=float, default=0.8, help='Temperature multiplier to determine rate of cooling')
     
     args = parser.parse_args()
     
@@ -1205,7 +1208,7 @@ if __name__ == "__main__":
 	print 'Using limited module number scoring.'
     
     # Execute simulated annealing
-    G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
+    G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff, -1, args.T_div, args.T_mult)
     
     #Get significance for each module
     _, _, _, qvals = get_module_pvalues(H, G, args.P, args.M)
