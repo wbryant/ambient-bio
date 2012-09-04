@@ -271,7 +271,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    count_score_imps_per_round += 1
 	
 	#Compare s scores to decide whether to keep the change
-        keep_change = compare_graph_scores(s_H_n, s_H, T)
+        keep_change = compare_scores_total(s_H_n, s_H, T)
         if keep_change == 1:
 	    keep_count += 1
             # update scores to new state
@@ -457,6 +457,21 @@ def compare_graph_scores(s1, s0, T):
     #What to do if the algorithm doesn't come to a decision?  Accept the change
     return 1
 
+def compare_scores_total(s1, s0, T):
+    """Compare the sum of two sets of scores and determine whether a change should be accepted."""
+    
+    ss1 = sum(s1)
+    ss0 = sum(s0)
+    
+    if ss1 >= ss0:
+	return 1
+    else:
+	p = exp((ss1-ss0)/T)
+	r = rand.uniform(0,1)
+	if r > p:
+	    return 0
+	else:
+	    return 1
 
 # SBML import function
 # This function imports an SBML model and converts it into a bipartite network
