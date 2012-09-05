@@ -137,7 +137,10 @@ from copy import *
 
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
-def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1, T_init_div = 10, T_chn_factor = 0.8):
+def ambient(expt_name, Q, N = 10000, M = -1, dir = 1,
+	    adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4,
+	    H_edges = -1,
+	    T_init_div = 10, T_chn_factor = 0.8):
     """Find high scoring modules in a bipartite metabolic network Q."""   
     
     G = Q.to_undirected()
@@ -148,18 +151,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
         for node in G.nodes():
             if G.node[node]['type'] == 'reaction':
                 G.node[node]['score'] = -1*G.node[node]['score']
-    
-    # Re-zero reaction scores
-    rxn_score_list = []
-    for i in G.nodes():
-	node = G.node[i]
-	if node['type'] == 'reaction':
-	    rxn_score_list.append(node['score'])
-    median_score = median(rxn_score_list)
-    for node in G.nodes():
-	if G.node[node]['type'] == 'reaction':
-	    G.node[node]['score'] -= median_score
-    
+        
     # Calculate k
     s_tot_m = 0
     s_tot_r = 0
@@ -192,6 +184,14 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     for node in G.nodes():
 	score_dict[node] = G.node[node]['score']
     
+    # If M is not given, logarithmic scoring is used
+    if M == -1:
+	print 'Using logarithmic scoring.'
+	chn_test_fcn = compare_scores_total
+    else:
+	print 'Using limited module number scoring.'
+	chn_test_fcn = compare_graph_scores
+
     # Estimate typical score changes and set beginning temperature
     module_score_dict = {}
     s_H_sample = []
@@ -271,7 +271,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    count_score_imps_per_round += 1
 	
 	#Compare s scores to decide whether to keep the change
-        keep_change = compare_scores_total(s_H_n, s_H, T)
+        keep_change = chn_test_fcn(s_H_n, s_H, T)
         if keep_change == 1:
 	    keep_count += 1
             # update scores to new state
@@ -541,6 +541,7 @@ def import_SBML_to_bipartite(SBML_filename):
             G.node[node]['weight'] = float(G.degree(node))
 	    G.node[node]['score'] = -1*float(G.degree(node))
     print 'Finished model import.'
+    
     return G
 
 
@@ -839,7 +840,7 @@ def gml_export(K, filename, Cyto = -1):
                 else:
                     G.node[node][attr] = 'none'
 
-    nx.write_graphml(G, 'temp.gml')
+    nx.write_graphml(G, cc([filename,'.tmp']))
     
     # Write GraphML, when imported into Cytoscape, doesn't use attribute names,
     # but just attribute IDs for identification.  Therefore to make it easier to
@@ -848,7 +849,7 @@ def gml_export(K, filename, Cyto = -1):
     
     # Create dictionary of id/name pairs from the file
     id_name = {}
-    f_in = open('temp.gml', 'r')
+    f_in = open(cc([filename,'.tmp']), 'r')
     while True:
         current_line = f_in.readline()
         if len(current_line) == 0:
@@ -863,7 +864,7 @@ def gml_export(K, filename, Cyto = -1):
     f_in.close()
     
     # For each line in the temporary GraphML check for ID mentions and replace them with names
-    f_in = open('temp.gml', 'r')
+    f_in = open(cc([filename,'.tmp']), 'r')
     f_out = open(filename, 'w')
     while True:
         current_line = f_in.readline()
@@ -901,31 +902,109 @@ def cc(strings):
 
 # Read scores for reactions and add values to relevant nodes.  Assign the
 # median value of changes to each reaction for which there is no score.
-def read_rxn_scores(G, filename):
+def read_rxn_scores(G, filename, unknown_to_zero = -1):
     """Import scores for reactions in C{G} from file C{filename}."""
     print 'Reading reaction scores ...'
     table = get_data_tsv(filename)
     
-    # All unassigned reactions get assigned the median score of the scoreset
-    ids, scores = zip(*table)
-    scores_med = []
-    for score in scores:
-	scores_med.append(float(score))
-    score_default = median(scores_med)
-    score_default = float(score_default)
+    if unknown_to_zero == -1:
+	# All unassigned reactions get assigned the median score of the scoreset
+	print "Unassigned reaction scores set to median."
+	ids, scores = zip(*table)
+	scores_med = []
+	for score in scores:
+	    scores_med.append(float(score))
+	score_default = median(scores_med)
+	score_default = float(score_default)
+    else:
+	print "Unassigned reaction scores set to zero."
+	score_default = 0
     
     # Assign scores from table
     for node in G.nodes():
         if G.node[node]['type'] == 'reaction':
             G.node[node]['score'] = float(score_default)
+	    G.node[node]['no_data'] = True
             for row in table:
 		#print str(G.node[node]['id'])
 		#print str(row[0])
                 if G.node[node]['id'] == row[0]:
                     G.node[node]['score'] = float(row[1])
+		    G.node[node]['no_data'] = False
 		    break
     print 'Reaction scores read.'
+    
+
     return G
+
+
+# This function takes gene transcription values and maps them (using simple
+# averages) onto reactions in network G (according to gene associations in
+# attribute - default is 'genelist')
+def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist', unknown_to_zero = -1):
+    """Use gene scores to create scores for reactions in C{G}."""
+    all_scores = []
+    for node in G.nodes():
+        if G.node[node]['type'] == 'reaction':
+            if G.node[node][gene_attr] is not empty:
+                new_genelist = []
+                for gene in G.node[node][gene_attr]:
+                    gene = gene.lower()
+                    gene = gene.rstrip('c')
+                    new_genelist.append(gene)
+                G.node[node][gene_attr] = new_genelist
+                scores = []
+                for gene_score in gene_scores:
+		    gene_name = gene_score[0]
+		    gene_name = gene_name.lower()
+                    if gene_name in G.node[node][gene_attr]:
+                        scores.append(gene_score[1])
+                if len(scores) > 0:
+		    mean_score = 0
+		    for score in scores:
+			mean_score += float(score)
+                    mean_score = mean_score/len(scores)
+		    G.node[node]['no_data'] = False
+		    all_scores.append(mean_score)
+                else:
+                    G.node[node]['no_data'] = True
+		    mean_score = 0
+            else:
+                G.node[node]['no_data'] = True
+		mean_score = 0
+	    G.node[node]['score'] = float(mean_score)
+    
+    #Assign scores to all unknown reactions
+    if unknown_to_zero == -1:
+	# Assign median score to all reactions without scores    
+	score_default = float(median(all_scores))
+	print "Unassigned reaction scores set to median."
+    else:
+	print "Unassigned reaction scores set to zero."
+	score_default = 0
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    if G.node[node]['no_data'] == True:
+		G.node[node]['score'] = median_score
+	    G.node[node]['score'] = float(G.node[node]['score'])
+    	
+    return G
+
+def move_median_to_zero(G):
+    """Shift all reaction scores by the value of the median, to put the median at zero."""
+    print "Median reaction score set to zero."
+    # Re-zero reaction scores
+    rxn_score_list = []
+    for i in G.nodes():
+	node = G.node[i]
+	if node['type'] == 'reaction':
+	    rxn_score_list.append(node['score'])
+    median_score = median(rxn_score_list)
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    G.node[node]['score'] -= median_score
+    return G
+
 
 
 #Get any file that is a tab-separated table (without headers) and import it as
@@ -1069,51 +1148,6 @@ def import_channels_genepix(files_in, file_out, ch1 = 34, ch2 = 42, id_col = 8, 
     
     return log_score_table
 
-# This function takes gene transcription values and maps them (using simple
-# averages) onto reactions in network G (according to gene associations in
-# attribute - default is 'genelist')
-def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist'):
-    """Use gene scores to create scores for reactions in C{G}."""
-    all_scores = []
-    for node in G.nodes():
-        if G.node[node]['type'] == 'reaction':
-            if G.node[node][gene_attr] is not empty:
-                new_genelist = []
-                for gene in G.node[node][gene_attr]:
-                    gene = gene.lower()
-                    gene = gene.rstrip('c')
-                    new_genelist.append(gene)
-                G.node[node][gene_attr] = new_genelist
-                scores = []
-                for gene_score in gene_scores:
-		    gene_name = gene_score[0]
-		    gene_name = gene_name.lower()
-                    if gene_name in G.node[node][gene_attr]:
-                        scores.append(gene_score[1])
-                if len(scores) > 0:
-		    mean_score = 0
-		    for score in scores:
-			mean_score += float(score)
-                    mean_score = mean_score/len(scores)
-		    G.node[node]['no_data'] = False
-		    all_scores.append(mean_score)
-                else:
-                    G.node[node]['no_data'] = True
-		    mean_score = 0
-            else:
-                G.node[node]['no_data'] = True
-		mean_score = 0
-	    G.node[node]['score'] = float(mean_score)
-	
-    # Assign median score to all reactions without scores    
-    median_score = float(median(all_scores))
-    for node in G.nodes():
-        if G.node[node]['type'] == 'reaction':
-            if G.node[node]['no_data'] == True:
-		G.node[node]['score'] = median_score
-	    G.node[node]['score'] = float(G.node[node]['score'])
-    	
-    return G
 
 
 def calc_bh_values(p_values, num_total_tests = -1):
@@ -1191,23 +1225,41 @@ if __name__ == "__main__":
     #T_chn_factor
     parser.add_argument('-U', action='store', dest='T_mult', type=float, default=0.8, help='Temperature multiplier to determine rate of cooling')
     
+    #Set median scores to zero
+    parser.add_argument('-Y', action='store_true', dest='median_to_zero', help='Set flag to move reaction median score to zero.')
+    
+    #Set unknowns to zero
+    parser.add_argument('-Z', action='store_true', dest='unknown_to_zero', help='Set flag to zero reactions without assigned scores.')
+    
+    
+    
     args = parser.parse_args()
     
     # Import model and data
     G = import_SBML_to_bipartite(args.model_file)
     
-    # Depnding on whether a reaction score file or a gene score file is selected, import the relevant scores and integrate them with the model
+    #Determine whether to set unknowns to zero
+    if args.unknown_to_zero and not args.median_to_zero:
+	unknown_to_zero = 1
+    else:
+	unknown_to_zero = -1	
+    
+    # Depending on whether a reaction score file or a gene score file is selected, import the relevant scores and integrate them with the model
     if not args.score_file is None:
 	print 'Reaction scores given.'
-	G = read_rxn_scores(G, args.score_file)
+	G = read_rxn_scores(G, args.score_file, unknown_to_zero)
     elif not args.gene_score_file is None:
 	print 'Gene scores given.'
 	gene_score_table = get_data_tsv(args.gene_score_file)
-	G = genescore2rxnscore(G, gene_score_table)
+	G = genescore2rxnscore(G, gene_score_table, unknown_to_zero)
     else:
 	print 'No input score file was specified.  Please specify a score file with the -s or -g argument.'
 	sys.exit()
     expt = args.expt_name
+    
+    #If flag is set, move reaction median score to zero.
+    if args.median_to_zero:
+	G = move_median_to_zero(G)
     
     if not args.metabolomics_file is None:
 	print 'Metabolomics data given, integrating with weight scores.'
@@ -1215,13 +1267,7 @@ if __name__ == "__main__":
 	G = inv_transform(G, mbc_table)
     else:
 	print 'No metabolomics data given.'
-    
-    # If M is not given, logarithmic scoring is used
-    if args.M == -1:
-	print 'Using logarithmic scoring.'
-    else:
-	print 'Using limited module number scoring.'
-    
+        
     # Execute simulated annealing
     G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff, -1, args.T_div, args.T_mult)
     
