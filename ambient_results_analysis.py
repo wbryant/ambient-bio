@@ -8,6 +8,7 @@ import networkx as nx
 import random as rand
 from time import time
 import operator
+import os.path
 import sys
 import re
 import shelve
@@ -15,6 +16,7 @@ import argparse
 from libsbml import *
 from ambient import get_data_tsv
 import ambient as amb
+import copy
 
 def combine_amb_runs(dat1, dat2, outfile, q_cutoff = 0.05, run1_name = 'Run1', run2_name = 'Run2'):
     """Take the results from two runs of AMBIENT and combine their results,
@@ -72,8 +74,23 @@ def combine_amb_runs(dat1, dat2, outfile, q_cutoff = 0.05, run1_name = 'Run1', r
     
     G_output = amb.gml_export(G_class, amb.cc([outfile, '.graphml']))
     
-def compare_cc_f_measure(all_nodes, ccs1, ccs2, qvals1, qvals2, q_cutoff = 0.05):
+def compare_cc_f_measure(G, ccs1, ccs2, qvals1 = None, qvals2 = None, q_cutoff = 0.05):
     """Find the similarity between the sets of nodes according to two AMBIENT runs."""
+    
+    if type(ccs1[0]) != 'list':
+        ccs1 = [ccs1]
+    if type(ccs2[0]) != 'list':
+        ccs2 = [ccs2]
+        
+    if qvals1 is None:
+        qvals1 = [0]*len(ccs1)
+    if qvals2 is None:
+        qvals2 = [0]*len(ccs2)
+    
+    qvals1 = tuple(qvals1)
+    qvals2 = tuple(qvals2)
+    
+    all_nodes = G.nodes()
     set_of_nodes = set(all_nodes)
     mod_set_1 = []
     for idx, mod in enumerate(ccs1):
@@ -108,10 +125,12 @@ def f_measure(pos1, neg1, pos2, neg2):
     tn = len(neg1 & neg2)
     fn = len(neg2 - neg1)
     
-    precision = tp / float(tp+fp)
-    recall = tp / float(tp + fn)
-    f_measure = 2*precision*recall/(precision + recall)
-    
+    try:
+        precision = tp / float(tp+fp)
+        recall = tp / float(tp + fn)
+        f_measure = 2*precision*recall/(precision + recall)
+    except:
+        f_measure = 0
     return f_measure
 
 def convert_cc_to_module_list(G, ccs, qvals, q_cutoff = 0.05):
@@ -134,6 +153,37 @@ def convert_cc_to_module_list(G, ccs, qvals, q_cutoff = 0.05):
             module_member_list[full_node_list.index(node)] = mod_ref
     return module_member_list
 
-
-
+def sig_module_table(expt_name, outfile, q_cutoff = 0.05):
+    """For an experiment create a table of module memberships for statistical analysis."""
+    
+    #import data and get module lists
+    run_no = 1
+    modules = []
+    while os.path.isfile(amb.cc([expt_name, str(run_no), '.dat'])) | os.path.isfile(amb.cc([expt_name, str(run_no), '.dat.dat'])):
+        filename = amb.cc([expt_name, str(run_no), '.dat'])
+        p = shelve.open(filename)
+        cc_out = p['cc_out']
+        qvals = p['qvals']
+        G = p['G']
+        modlist = convert_cc_to_module_list(G, cc_out, qvals)
+        modules.append(modlist)
+        no_nodes = len(G.nodes())
+        run_no += 1
+    
+    #Output data into tsv
+    
+    mod_table = zip(*modules)
+    f = open(outfile,'w')
+    
+    for value in range(1,run_no):
+        f.write('Run' + str(value) + '\t')
+    f.write('\n')
+    for row in mod_table:
+        for entry in row:
+            f.write(str(entry) + '\t')
+        f.write('\n')
+    f.close()
+    
+    
+    
     
