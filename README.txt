@@ -1,7 +1,13 @@
-﻿AMBIENT v1.1: Active Modules for Bipartite Networks
-Copyright 2012 William A. Bryant and John W. Pinney
+﻿AMBIENT v1.2.1: Active Modules for Bipartite Networks
+Copyright 2012 and 2013 William A. Bryant and John W. Pinney
 
-July 2012.
+April 2013
+
+USAGE DISCLAIMER
+
+Two files: 'ambient2sbml.py' and 'ambient_results_analysis.py' are designed for further analysis and conversion of AMBIENT results, but are not fully tested or documented.
+
+Usage of scripts in these files is done at the user's own risk.  Everything necessary to create and view AMBIENT is available in the 'ambient.py' file.
 
 GETTING STARTED
 
