@@ -1,6 +1,6 @@
 """
-AMBIENT v1.2.1: Active Modules for Bipartite Networks
-Copyright 2012 William A. Bryant and John W. Pinney
+AMBIENT v1.3: Active Modules for Bipartite Networks
+Copyright 2012 and 2013 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
 bipartite network) to find connected components of the network with a coordinated
