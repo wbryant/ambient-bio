@@ -1,4 +1,4 @@
-﻿AMBIENT v0.6.3: Active Modules for Bipartite Networks
+﻿AMBIENT v1.1: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 July 2012.
@@ -7,7 +7,7 @@ GETTING STARTED
 
 Language: Python
 Non-standard requirements: libSBML, NetworkX, NumPy
-AMBIENT has been tested and works with Python v2.7, libSBML v5.3.0, NetworkX v1.6, NumPy v1.6.1
+AMBIENT has been tested and works with Python v2.7.2, libSBML v5.3.0, NetworkX v1.6, NumPy v1.6.1
 
 Use within a Python shell requires the command: 'import ambient'.  Installation is not required for using AMBIENT at the commandline.
 

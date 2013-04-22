@@ -1,5 +1,5 @@
 """
-AMBIENT v0.6.3: Active Modules for Bipartite Networks
+AMBIENT v1.2.1: Active Modules for Bipartite Networks
 Copyright 2012 William A. Bryant and John W. Pinney
 
 This module undertakes simulated annealing on a metabolic model (arranged as a
@@ -42,46 +42,30 @@ NetworkX
 
 Example use
 ===========
-Two sets of example data are available with AMBIENT; presented here is the set of commands
-required to run the analysis of transcriptomic data for Mycobacterium
-tuberculosis invading the Human Macrophage - see the README for reference details
-(assuming you are in the C{examples/MTU} directory and C{ambient.py} is in your path):
+A set of example data is available with AMBIENT; from the command line AMBIENT can be run thus (starting in the AMBIENT main directory):
 
-C{########
-# Import ambient
-import ambient as amb}
+C{cd example}
 
-C{# Load metabolic network
-G = amb.import_SBML_to_bipartite('inj661.xml')}
+C{python ../ambient.py -m yeast_4.02.xml -s SCE_scores.tsv -e SCE_pos_log_run}
 
-C{# Read reaction scores into the network
-G = amb.read_rxn_scores(G, 'MTU_scores.txt')}
+where C{yeast_4.02.xml} is the SBML yeast model, C{SCE_scores.tsv} is the
+tab-separated table of reaction scores and C{SCE_pos_log_run} is the name that
+is used in naming all of the results files.
 
-C{# Execute simulated annealing for positive and negative scores.
-H_up, scores_up, cc_up = amb.ambient('MTU_example_up', G)
-H_down, scores_down, cc_down = amb.ambient('MTU_example_down', G)}
+Options for all of the parameters of AMBIENT can be set at the command line.  For
+a complete list of all options type (from the AMBIENT main directory):
 
-C{# If a network export is required (for instance for visualisation) currently
-# GraphML export is implemented}
+C{python ambient.py -h}
 
-C{# Map modules onto the metabolic network
-G_class = amb.classify_nodes_ud(G, cc_up, cc_down, 'modules')}
-
-C{# Export network to GraphML format.  GraphML cannot handle lists as attribute
-# values, so the network attributes are all flattened.  The final output
-# network is G_output
-G_output = amb.gml_export(G_class, 'MTU_example.graphml')
-########}
-
-N.B. the default value for C{N} (the number of iterations) is 10000, which may
+N.B. the default value for C{N} (the number of iterations) is 10,000, which may
 take a few minutes to run.  This value is for testing, a more realistic value
-for networks of this size would be ~1,000,000, but would depend on the underlying
+for networks of this size might be ~1,000,000, but would depend on the underlying
 structure of the network and the distribution of metabolite/reaction scores.
 
 MAIN FUNCTION DESCRIPTION
 =========================
 
-C{G, H, scores, cc = ambient(expt_name, Q, N = 10000, M = 20, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 6, H_edges = -1)}
+C{G, H, scores, cc_out = ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4, H_edges = -1, T_init_div = 10, T_chn_factor = 0.8)}
 
 Inputs
 ------
@@ -99,6 +83,8 @@ C{adaptive_interval} - number of steps to take before assessing how the score ha
 C{score_change_ratio} - percentage rate of change per thousand steps below which temperature is dropped.
 C{intervals_cutoff} - number of times to go through adaptive_interval number of steps before automatically dropping temperature.
 C{H_edges} - list of tuples of 2 ints - a list of edges that if specified is used as the seed set of edges in the simulated annealing process.
+C{T_init_div} - factor by which to reduce the initial temperature (tune to prevent local minima and time wasting at initial high temperature).
+C{T_chn_factor} - factor determining rate of temperature reduction during annealing.
 
 Outputs
 -------
@@ -133,21 +119,21 @@ import re
 import shelve
 import argparse
 from libsbml import *
+from copy import *
 
 # Simulated annealing algorithm - after Ideker 2002.  See above for full description of use
 #@profile
-def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 6, H_edges = -1):
-    """Find high scoring modules in a bipartite metabolic network Q."""
-
+def ambient(expt_name, Q, N = 10000, M = -1, dir = 1,
+	    adaptive_interval = 3000, score_change_ratio = 0.2, intervals_cutoff = 4,
+	    H_edges = -1,
+	    T_init_div = 10, T_chn_factor = 0.8,
+	    log_score_cutoff = 0.0):
+    """Find high scoring modules in a bipartite metabolic network Q."""   
+    
     G = Q.to_undirected()
     q = len(G.edges())/50
     
-    # Determine direction for reaction scores
-    if dir == -1:
-        for node in G.nodes():
-            if G.node[node]['type'] == 'reaction':
-                G.node[node]['score'] = -1*G.node[node]['score']
-    
+    print 'Calculating k ...'
     # Calculate k
     s_tot_m = 0
     s_tot_r = 0
@@ -155,38 +141,64 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     no_m = 0
     for node in G.nodes():
         if G.node[node]['type'] == 'metabolite':
-            s_tot_m += G.node[node]['weight']
+            s_tot_m -= G.node[node]['score']
             no_m += 1
         else:
-            G.node[node]
-            if G.node[node]['score'] > 0:
+            #print G.node[node]['score']
+            if G.node[node]['score'] >= 0:
                 s_tot_r += G.node[node]['score']
                 no_r_pos += 1
+    if no_r_pos == 0:
+	print 'No positive scoring reactions, using negative reactions to clculate k ...'
+	s_tot_r = 0
+        for node in G.nodes():
+	    if G.node[node]['type'] == 'reaction':
+	        s_tot_r += abs(G.node[node]['score'])
+	        no_r_pos += 1
     s_mean_r = s_tot_r/no_r_pos
     s_mean_m = s_tot_m/no_m
     k = s_mean_r/s_mean_m
     
-    # Make metabolite 'score' = -k*weight and sum all scores
+    print 'k calculated, k = %s.' % k
+    
+    # Normalise all metabolite scores
     for node in G.nodes():
 	if G.node[node]['type'] == 'metabolite':
-	    G.node[node]['score'] = -k*G.node[node]['weight']
+	    G.node[node]['score'] = float(k*G.node[node]['score'])
+	    
+    
+    # Ensure all node scores are of type 'float'
+    for node in G.nodes():
+	
+	#print G.node[node]['score']
+	G.node[node]['score'] = float(G.node[node]['score'])
+	#print G.node[node]['score']
     
     # Store all scores in a dictionary for each node
     score_dict = {}
     for node in G.nodes():
 	score_dict[node] = G.node[node]['score']
     
+    # If M is not given, logarithmic scoring is used
+    if M == -1:
+	print 'Using logarithmic scoring.'
+	chn_test_fcn = compare_scores_total
+    else:
+	print 'Using limited module number scoring.'
+	chn_test_fcn = compare_graph_scores
+
     # Estimate typical score changes and set beginning temperature
     module_score_dict = {}
     s_H_sample = []
-    for i in range(100):
+    print 'Determining initial value for T ...'
+    for i in range(500):
 	H_edges = rand.sample(G.edges(),q)
 	H_edges = set(H_edges)
 	H = edges_to_graph(G, H_edges)
-	s_H, _ = get_graph_scores(H, M, score_dict, module_score_dict)
+	s_H, _ = get_graph_scores(H, M, log_score_cutoff, [], score_dict, module_score_dict)
 	s_H_sample.append(max(s_H))
     T = max(s_H_sample) - min(s_H_sample)
-    T = T/5.0
+    T = T/T_init_div
     print 'Initial value of T: %4.4f.' % (T)
     
     # Set initial number of edges to toggle at each step
@@ -204,7 +216,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     H_n_edges = set(H_n.edges())
     
     # Determine best M s-scores for this network
-    s_H, _ = get_graph_scores(H, M, score_dict, module_score_dict)
+    s_H, _ = get_graph_scores(H, M, log_score_cutoff, [], score_dict, module_score_dict)
     
     #Initialise variables
     R = len(G.edges())
@@ -212,19 +224,37 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     interval_cutoff_reached = 0
     count_attempts = 0
     score_sum = 0.0
-    score_win_prev = adaptive_interval*(sum(s_H))
+    score_win_prev = adaptive_interval*(sumpos(s_H))
     keep_count = 0
     t1 = time()
     count_score_improvements = 0
     count_score_imps_per_round = 0
-    print 'Current s_H: %8.2f %8.2f %8.2f' % (sum(s_H), s_H[0], s_H[-1])
+    print 'Current s_H: %8.2f %8.2f %8.2f' % (sumpos(s_H), s_H[0], s_H[-1])
+    
+    # Store run details in dictionary expt_details
+    expt_details = {}
+    expt_details['name'] = expt_name
+    expt_details['N'] = N
+    expt_details['M'] = M
+    expt_details['dir'] = dir
+    expt_details['adaptive_interval'] = adaptive_interval
+    expt_details['score_change_ratio'] = score_change_ratio
+    expt_details['intervals_cutoff'] = intervals_cutoff
+    expt_details['init_edges'] = H_edges
+    expt_details['init_temp'] = T
+    expt_details['init_ntoggles'] = n_toggles
+    expt_details['k'] = k
+    expt_details['T_init_div'] = T_init_div
+    expt_details['T_chn_factor'] = T_chn_factor
+    expt_details['log_score_cutoff'] = log_score_cutoff
+    
     
     #Run through N steps of this algorithm
     print 'Begin annealing ...'
     for i in range(1, N):
 	
 	count_attempts += 1
-	score_sum += sum(s_H)
+	score_sum += sumpos(s_H)
 	
         #Randomly change the network by a set of edges
         toggle_edges = rand.sample(G_edges,n_toggles)
@@ -232,24 +262,24 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
         toggle_subgraph_edges(H_n, H_n_edges, G, toggle_edges)
         
         # Get scores for the new subgraph
-        s_H_n, _ = get_graph_scores(H_n, M, score_dict, module_score_dict)
+	s_H_n, _ = get_graph_scores(H_n, M, log_score_cutoff, [], score_dict, module_score_dict)
 	
-	#Compare s scores to decide whether to keep the change
-        keep_change = compare_graph_scores(s_H_n, s_H, T)
-        if sum(s_H_n) > sum(s_H):
+	#For adaptive annealing, check sum of positive scoring modules and count improvements
+        if sumpos(s_H_n) > sumpos(s_H):
 	    count_score_improvements += 1
 	    count_score_imps_per_round += 1
 	
+	#Compare s scores to decide whether to keep the change
+        keep_change = chn_test_fcn(s_H_n, s_H, T)
         if keep_change == 1:
 	    keep_count += 1
-            # update scores
+            # update scores to new state
             s_H = s_H_n
             toggle_subgraph_edges(H, H_edges, G, toggle_edges)
         else:
+	    # revert to previous state
             toggle_subgraph_edges(H_n, H_n_edges, G, toggle_edges)
 	    
-	
-	
         # Keep user informed of progress and approximate time until completion
         if i/adaptive_interval == i/float(adaptive_interval):
 	    
@@ -257,9 +287,12 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
             time_per_round = t_now/(i)
             time_left = time_per_round * (N-i)
             
-	    ro_change = 100000*(score_sum-score_win_prev)/(adaptive_interval*score_win_prev)
+	    try:
+		ro_change = 100000*(score_sum-score_win_prev)/(adaptive_interval*score_win_prev)
+	    except:
+		ro_change = 0
 	    if abs(ro_change) < score_change_ratio or intervals_count == intervals_cutoff:
-		T = T*0.8
+		T = T*T_chn_factor
 	    	n_toggles = (n_toggles*8)/10
 		if n_toggles < 1:
 		    n_toggles = 1
@@ -282,12 +315,12 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	    count_score_imps_per_round = 0
 	    if interval_cutoff_reached == 1:
 		print 'Interval cutoff reached, moving to new temperature.'
-	    interval_cutoff_reached = 0
+		interval_cutoff_reached = 0
 	    print 'Temperature for following: %5.4f.' % (T)
 	    print 'Number of toggles per step for following: %d.' % (n_toggles)
 	    print 'Length of module_score_dict: %d.' % (len(module_score_dict))
-	    print 'Current score of top 20: %5.4f.' % (sum(s_H[0:20]))
-	    print 'Current s_H sum: %4.2f' % (sum(s_H))
+	    print 'Current score of top 20: %5.4f.' % (sumpos(s_H[0:20]))
+	    print 'Current s_H sum: %4.2f' % (sumpos(s_H))
 	    print 'Current highest s_H: %4.2f' % (s_H[0])
 	    print 'Current second highest s_H: %4.2f\n' % (s_H[1])
 	    
@@ -300,7 +333,7 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
 	
     print 'Annealing complete.'    
     H = H_n.copy()
-    scores, cc_out = get_graph_scores(H, M, score_dict, module_score_dict)
+    scores, cc_out = get_graph_scores(H, M, log_score_cutoff, [], score_dict, module_score_dict)
     t_diff = (time()-t1)/60
     print 'Time taken for %d steps was %4.2f minutes.' % (i, t_diff)
     
@@ -310,22 +343,34 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1, adaptive_interval = 3000, 
     d['H'] = H
     d['scores'] = scores
     d['cc_out'] = cc_out
+    d['expt_details'] = expt_details
     d.close()
     print 'Python outputs written to %s' % (cc([expt_name, '.dat']))
     
     return G, H, scores, cc_out
 
-
-
+#Find sum of positive values in a list
+def sumpos(list):
+    listpos = 0
+    for entry in list:
+	if entry > 0:
+	    listpos += entry
+    return listpos
    
-# This function scores samples from a bipartite met/rxn graph by summing
-# reaction scores and summing metabolite weights and returns the sum 
-# Z = z_r - (k * z_m) for all M of the highest scoring (connected) components.
-# For improved annealing the top M s-scores must be returned from s_score.
+# This function scores a bipartite met/rxn graph by summing
+# reaction and metabolite scores and returns the sum 
+# for all M of the highest scoring (connected) components.
 #@profile
-def get_graph_scores(G, M, score_dict = {}, module_score_dict = {}, score = 'score'):
+def get_graph_scores(G, M, log_score_cutoff = 0.0, G_comps = [], score_dict = {}, module_score_dict = {}):
     """Get top C{M} module scores in network C{G}."""
-    G_comps = nx.connected_components(G)
+    
+    if len(G_comps) == 0:
+	G_comps = nx.connected_components(G)
+    else:
+	if type(G_comps[0]) is int:
+	    G_comps_tmp = []
+	    G_comps_tmp.append(G_comps)
+	    G_comps = G_comps_tmp
     G_comps_frozen = []
     no_comps = len(G_comps)
     s_tot = []
@@ -354,7 +399,14 @@ def get_graph_scores(G, M, score_dict = {}, module_score_dict = {}, score = 'sco
 	    
 	    # Multiply module score by log of module size to encourage congregation
 	    if M == -1:
-		s_tot_count = log(len(component))*s_tot_count
+		log_count = 2
+		if log_score_cutoff > 0:
+		    for node in component:
+			if score_dict[node] > log_score_cutoff:
+			    log_count += 1
+		else:
+		    log_count += len(component)
+		s_tot_count = log(log_count)*s_tot_count
 	    
 	    s_tot.append(s_tot_count)    
 	    
@@ -410,7 +462,10 @@ def compare_graph_scores(s1, s0, T):
 	    elif s1[k] == s0[k]:
 		k += 1
 	    else:
-		p = exp((s1[k]-s0[k])/T)
+		try:
+		    p = exp((s1[k]-s0[k])/T)
+		except:
+		    p = 0
 		r = rand.uniform(0,1)
 		#print '\t%d %5.3f %5.3f %5.3f %5.3f %5.3f' % (k, s1[k], s0[k], s1[k] - s0[k], T, p)
 		# f_log.write('\t%d %5.3f %5.3f %5.3f %5.3f\n' % (k, p, r, s1[k], s0[k]))
@@ -421,6 +476,21 @@ def compare_graph_scores(s1, s0, T):
     #What to do if the algorithm doesn't come to a decision?  Accept the change
     return 1
 
+def compare_scores_total(s1, s0, T):
+    """Compare the sum of two sets of scores and determine whether a change should be accepted."""
+    
+    ss1 = sum(s1)
+    ss0 = sum(s0)
+    
+    if ss1 >= ss0:
+	return 1
+    else:
+	p = exp((ss1-ss0)/T)
+	r = rand.uniform(0,1)
+	if r > p:
+	    return 0
+	else:
+	    return 1
 
 # SBML import function
 # This function imports an SBML model and converts it into a bipartite network
@@ -428,11 +498,13 @@ def compare_graph_scores(s1, s0, T):
 def import_SBML_to_bipartite(SBML_filename):
     """Import file C{SBML_filename} and convert it into a bipartite metabolic network."""
     
+    print '\n\nImporting SBML model ...'
+    
     # Import SBML model
     reader = SBMLReader()
     document = reader.readSBMLFromFile(SBML_filename)
     model = document.getModel()
-    print 'Model being imported: %s.' % (model.getId())
+    print 'Model being imported: %s ...' % (model.getId())
     
     # Initialize NetworkX model and populate with metabolite and reaction nodes.
     # At the same time, create an id / node_idx dictionary for use when creating
@@ -488,14 +560,16 @@ def import_SBML_to_bipartite(SBML_filename):
     for node in G.nodes():
         if G.node[node]['type'] == 'metabolite':
             G.node[node]['weight'] = float(G.degree(node))
+	    G.node[node]['score'] = -1*float(G.degree(node))
     print 'Finished model import.'
+    
     return G
 
 
 # This function takes two sets of nodes from a given graph, from positive
 # scores and negative scores respectively, and classifies all of the nodes
-# according to those sets (0 if not a member of any of them).
-def classify_nodes_ud(G, set_list1, set_list2, attribute):
+# according to those sets (0 if not a member of any of them).  This will only
+def classify_nodes_ud(G, set_list1, qvals1, set_list2, qvals2, q_cutoff = 0.05, attribute = 'Classification'):
     """Add attribute C{attribute} to network C{G} indicating two sets of module members from C{set_list1} and C{set_list2}."""
     G_out = G.copy()
     for node in G_out.nodes():
@@ -504,17 +578,18 @@ def classify_nodes_ud(G, set_list1, set_list2, attribute):
     	else:
     		G_out.node[node][attribute] = 0.0
     class_idx = 0.0
-    for module in set_list1:
-        class_idx += 1
-        for node in module:
-            G_out.node[node][attribute] = class_idx
+    for idx, module in enumerate(set_list1):
+	class_idx += 1
+	if qvals1[idx] <= q_cutoff:
+	    for node in module:
+		G_out.node[node][attribute] = class_idx
     class_idx = 0.0
-    for module in set_list2:
+    for idx, module in enumerate(set_list2):
         class_idx -= 1
-        for node in module:
-            G_out.node[node][attribute] = class_idx
+	if qvals2[idx] <= q_cutoff:
+	    for node in module:
+	        G_out.node[node][attribute] = class_idx
     return G_out
-
 
 # This function takes a list of lists of nodes from a given graph and classifies all of
 # the nodes according to those sets (0 if not a member of any of them) in node
@@ -545,8 +620,6 @@ def classify_nodes_single(G, set_list, attribute, q_vals = -1, q_cutoff = 0.05):
 	        for node in nodes:
 	            G_out.node[node][attribute] = class_idx
     return G_out
-
-
 
 # Take a network, a subnetwork and an edge from the network.  If the edge exists
 # in the subnetwork, remove it, otherwise add it and nodes connected to it that
@@ -587,8 +660,8 @@ def edges_to_graph(G, H_edges):
 
 
 # Calculate p-values for each module in H (being a subgraph of G), or if H is a list of edges, for each module induced by those edges in G
-def get_module_pvalues(H, G, M = 1000, P = 10000):
-    """Find significance values for all modules (connected components) in a subgraph of a reaction/metabolite bipartite network."""
+def get_module_pvalues(H, G, P = 10000, M = 1000, log_score_cutoff = 0.0):
+    """Find significance values for all modules with a positive score (connected components) in a subgraph of a reaction/metabolite bipartite network."""
     print 'Calculating p-values and q-values for modules ...'
     r_scores = []
     m_scores = []
@@ -608,29 +681,52 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
     
     pvals_dict = {}
     cc_pvals = []
+    no_pos_scores = 0
     for cc in H_ccs:
-	if len(cc) < 400:
-	    #print cc
-	    # How many reactions/metabolites?  What is module's score?
-	    no_rxns = 0
-	    no_mets = 0
-	    module_score = 0
-	    for node in cc:
-		module_score += G.node[node]['score']    
-		if G.node[node]['type'] == 'reaction':
-		    no_rxns += 1
-		else:
-		    no_mets += 1
-	    #print 'mets:rxns - %d:%d' % (no_mets, no_rxns)
-	    #print 'Module score: %f.' % (module_score)
+	#print cc
+	# How many reactions/metabolites?  What is module's score?
+	no_rxns = 0
+	no_mets = 0
+	module_score = 0
+	for node in cc:
+	    module_score += G.node[node]['score']    
+	    if G.node[node]['type'] == 'reaction':
+		no_rxns += 1
+	    else:
+		no_mets += 1
+	#print 'mets:rxns - %d:%d' % (no_mets, no_rxns)
+	#print 'Module score: %f.' % (module_score)
+	
+	if module_score < 0:
+	    cc_pval = 1
+	else:
+	    if len(cc) > 100:
+		print len(cc)
+	    no_pos_scores += 1
+	    print no_pos_scores
 	    
 	    # Do sampling
 	    #print 'Sample scores:\n'
 	    cc_sample_values = []
 	    for i in range(P):
-		rxn_score = sum(rand.sample(r_scores, no_rxns))
-		met_score = sum(rand.sample(m_scores, no_mets))
+		sample_rxn_vals = rand.sample(r_scores, no_rxns)
+		sample_met_vals = rand.sample(m_scores, no_mets)
+		
+		rxn_score = sum(sample_rxn_values)
+		met_score = sum(sample_met_vals)
 		tot_score = rxn_score + met_score
+		
+		#Take into account logarithmic scoring
+		no_pos_scoring = 1
+		for val in sample_rxn_scores:
+		    if val > log_score_cutoff:
+			no_pos_scoring += 1
+		for val in sample_met_scores:
+		    if val > log_score_cutoff:
+			no_pos_scoring += 1
+		
+		tot_score = ln(no_pos_scoring)*tot_score
+		
 		#print tot_score
 		cc_sample_values.append(tot_score)
 	    
@@ -643,18 +739,27 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
 		if score >= module_score:
 		    score_higher_count += 1
 	    cc_pval = score_higher_count / float(P)
-	else:
-	    cc_pval = 1
-	#print 'p-value: %f\n' % (cc_pval)
-        cc_pvals.append(cc_pval)
-	cc_name = frozenset(cc)
-        pvals_dict[cc_name] = cc_pval
 	
+	    cc_pvals.append(cc_pval)
+	    cc_name = frozenset(cc)
+	    if len(cc) > 100:
+		print cc_name
+	    pvals_dict[cc_name] = cc_pval
+	    if len(cc) > 100:
+		print pvals_dict[cc_name]
+	    #print('cc_name: ' + str(cc_name) + '. pval: ' + str(cc_pval) + '. score: ' + str(module_score) + '\n')
 	    
-    scores, cc_out = get_graph_scores(H, M)
+    #print 'new modules:\n'
+    scores, cc_out = get_graph_scores(H, M, {}, {}, log_score_cutoff)
     pvals_ordered = []
-    for cc_sorted in cc_out:
+    for id, cc_sorted in enumerate(cc_out):
+	print id
+	print cc_sorted
+	print scores[id]
+	if scores[id] < 0:
+	    break
 	cc_sorted_set = frozenset(cc_sorted)
+	#print('cc_name: ' + str(cc_sorted) + '. pval: ' + str(pvals_dict[cc_sorted_set]) + '\n')
 	pvals_ordered.append(pvals_dict[cc_sorted_set])
     
     # Do correction for multiple testing using Benjamini-Hochberg
@@ -667,6 +772,120 @@ def get_module_pvalues(H, G, M = 1000, P = 10000):
     
     print 'P-values and q-values calculated.'
     return cc_out, scores, pvals_ordered, qvals_ordered
+
+# Calculate p-values for each module in H (being a subgraph of G), or if H is a list of edges, for each module induced by those edges in G
+def get_module_qvalues(H, G, score_fcn, P = 10000, M = -1, log_score_cutoff = 0.0):
+    """Find significance values for all modules with a positive score (connected components) in a subgraph of a reaction/metabolite bipartite network."""
+    print 'Calculating p-values and q-values for modules ...'
+    rxn_list = []
+    met_list = []
+    # Get complete lists of reaction and metabolite scores
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    rxn_list.append(node)
+	else:
+	    met_list.append(node)
+    
+    # For each module, do P samples of reaction/metabolite sets with the same number of each of those in that module
+    if type(H) is list:
+	if type(H[0]) is list:
+	    H_nodes = []
+	    for cc in H:
+		for node in cc:
+		    H_nodes.append(node)
+	else:
+	    H_nodes = H
+	H = G.subgraph(H_nodes)
+    H_ccs = nx.connected_components(H)
+    H_cc = []
+    #? H_cc.append(H_ccs[0])
+    
+    pvals_dict = {}
+    cc_pvals = []
+    no_pos_scores = 0
+    cc_no = 0
+    for cc in H_ccs:
+	#cc_no += 1
+	#print cc_no
+	#print cc
+	# How many reactions/metabolites?
+	no_rxns = 0
+	no_mets = 0
+	for node in cc:   
+	    if G.node[node]['type'] == 'reaction':
+		no_rxns += 1
+	    else:
+		no_mets += 1
+	
+	#print no_rxns
+	#print no_mets
+	
+	module_score, _ = score_fcn(G, M, log_score_cutoff, cc)
+	module_score = module_score[0]
+	#print module_score
+	
+	if module_score <= 0:
+	    cc_pval = 1
+	else:
+	    no_pos_scores += 1
+	    print no_pos_scores
+	    
+	    # Do sampling
+	    cc_sample_values = []
+	    for i in range(P):
+		
+		sample_rxn_list = rand.sample(rxn_list, no_rxns)
+		sample_met_list = rand.sample(met_list, no_mets)
+		sample_module_list = []
+		for rxn in sample_rxn_list:
+		    sample_module_list.append(rxn)
+		for met in sample_met_list:
+		    sample_module_list.append(met)
+		
+		sample_score, _ = score_fcn(G, M, log_score_cutoff, sample_module_list)
+		sample_score = sample_score[0]
+		#print tot_score
+		cc_sample_values.append(sample_score)
+	    
+	    #print 'Sample scores:\n'
+	    #print cc_sample_values
+	    
+	    # How many scores are higher than the score of the module?  What is the p-value?
+	    score_higher_count = 0
+	    for score in cc_sample_values:
+		if score >= module_score:
+		    score_higher_count += 1
+	    cc_pval = score_higher_count / float(P)
+	
+	    cc_pvals.append(cc_pval)
+	    cc_name = frozenset(cc)
+	    pvals_dict[cc_name] = cc_pval
+	    #print('cc_name: ' + str(cc_name) + '. pval: ' + str(cc_pval) + '. score: ' + str(module_score) + '\n')
+	    
+    scores, cc_out = score_fcn(H, M, log_score_cutoff)
+    #print cc_out
+    #print scores
+    pvals_ordered = []
+    for id, cc_sorted in enumerate(cc_out):
+	if scores[id] <= 0:
+	    if len(pvals_ordered) == 0:
+		pvals_ordered.append(1)
+	    break
+	cc_sorted_set = frozenset(cc_sorted)
+	pvals_ordered.append(pvals_dict[cc_sorted_set])
+	#print pvals_ordered
+	
+    # Do correction for multiple testing using Benjamini-Hochberg
+    pvals_table = sorted(enumerate(pvals_ordered), key=operator.itemgetter(1))
+    pval_index, pvals_sorted = zip(*pvals_table)
+    qvals_sorted = calc_bh_values(pvals_sorted)
+    qval_table = zip(pval_index, qvals_sorted)
+    qvals_ordered_table = sorted(qval_table, key=operator.itemgetter(0))
+    _, qvals_ordered = zip(*qvals_ordered_table)
+    
+    print 'P-values and q-values calculated.'
+    return cc_out, scores, pvals_ordered, qvals_ordered
+
 
 	    
 def get_subgraph_reactions(H, G):
@@ -715,7 +934,11 @@ def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
     """Export all significant modules to a flat file tsv table."""
     f = open(cc([expt_name,'.tsv']),'w')
     for idx, ccomp in enumerate(ccomps):
-	if qvals[idx] <= q_cutoff:
+	if idx >= len(qvals):
+	    qval = 1
+	else:
+	    qval = qvals[idx]
+	if qval <= q_cutoff:
 	    f.write('#Module ' + str(idx+1) + ' - q-value = ' + str(qvals[idx]) + ', no. of nodes: ' + str(len(ccomp)) + '.\n')
 	    for node in ccomp:
 		n = G.node[node]
@@ -758,9 +981,9 @@ def output_results_table(expt_name, G, ccomps, qvals, q_cutoff = 0.05):
 #
 #1)  write_graphml does not support attributes as lists, so these are flattened for export,
 #2)  write_graphml does not export int type attributes, so ensure that all numbered attributes are floats.
-def gml_export(K, filename):
+def gml_export(K, filename, Cyto = -1):
     """Export bipartite graph C{K} in GraphML format to file C{filename}."""
-    print 'Exporting graph to gml ...'
+    print 'Exporting graph to GraphML ...'
     G = K.copy()
     for node in G.nodes():
         for attr in G.node[node]:
@@ -769,14 +992,60 @@ def gml_export(K, filename):
 		    attr_list = G.node[node][attr][:]
 		    G.node[node][attr] = ''
                     for element in attr_list:
-			G.node[node][attr] += element
+			G.node[node][attr] += str(element)
 			G.node[node][attr] += ', '
                 elif len(G.node[node][attr]) == 1:
                     G.node[node][attr] = G.node[node][attr][0]
                 else:
                     G.node[node][attr] = 'none'
+	    if type(G.node[node][attr]) is numpy.float64:
+	    	G.node[node][attr] = numpy.asscalar(G.node[node][attr])
 
-    nx.write_graphml(G, filename)
+    nx.write_graphml(G, cc([filename,'.tmp']))
+    
+    # Write GraphML, when imported into Cytoscape, doesn't use attribute names,
+    # but just attribute IDs for identification.  Therefore to make it easier to
+    # use in Cytoscape, the IDs in the GraphML ile are converted to the names
+    # of the attributes.
+    
+    # Create dictionary of id/name pairs from the file
+    id_name = {}
+    f_in = open(cc([filename,'.tmp']), 'r')
+    while True:
+        current_line = f_in.readline()
+        if len(current_line) == 0:
+            break
+	id_name_line = re.search('(^  <key.+)',current_line)
+	if id_name_line is not None:
+	    id = re.search('id="([^"]+)"', current_line)
+	    id = id.group(1)
+	    name = re.search('attr.name="([^"]+)"', current_line)
+	    name = name.group(1)
+	    id_name[id] = name
+    f_in.close()
+    
+    # For each line in the temporary GraphML check for ID mentions and replace them with names
+    f_in = open(cc([filename,'.tmp']), 'r')
+    f_out = open(filename, 'w')
+    while True:
+        current_line = f_in.readline()
+        if len(current_line) == 0:
+            break
+	id_name_line = re.search('(^  <key.+)',current_line)
+	if id_name_line is not None:
+	    rep_line = re.search('(^.+id=")([^"]+)(".+$)',current_line)
+	    new_name = id_name[rep_line.group(2)]
+	    f_out.write(rep_line.group(1) + new_name + rep_line.group(3) + '\n')
+	else:
+	    rep_line = re.search('(^.+key=")([^"]+)(".+$)', current_line)
+	    if rep_line is not None:
+		new_name = id_name[rep_line.group(2)]
+		f_out.write(rep_line.group(1) + new_name + rep_line.group(3) + '\n')
+	    else:
+		f_out.write(current_line)
+    f_in.close()
+    f_out.close()
+    
     print 'Graph exported.'
     return G
 
@@ -793,30 +1062,122 @@ def cc(strings):
 
 # Read scores for reactions and add values to relevant nodes.  Assign the
 # median value of changes to each reaction for which there is no score.
-def read_rxn_scores(G, filename):
+def read_rxn_scores(G, filename, unknown_to_zero = -1):
     """Import scores for reactions in C{G} from file C{filename}."""
     print 'Reading reaction scores ...'
     table = get_data_tsv(filename)
     
-    # All unassigned reactions get assigned the median score of the scoreset
-    ids, scores = zip(*table)
-    scores_med = []
-    for score in scores:
-	scores_med.append(float(score))
-    score_default = median(scores_med)
-    score_default = float(score_default)
+    if unknown_to_zero == -1:
+	# All unassigned reactions get assigned the median score of the scoreset
+	print "Unassigned reaction scores set to median."
+	ids, scores = zip(*table)
+	scores_med = []
+	for score in scores:
+	    scores_med.append(float(score))
+	score_default = median(scores_med)
+	score_default = float(score_default)
+    else:
+	print "Unassigned reaction scores set to zero."
+	score_default = 0
     
     # Assign scores from table
     for node in G.nodes():
         if G.node[node]['type'] == 'reaction':
             G.node[node]['score'] = float(score_default)
+	    G.node[node]['no_data'] = True
             for row in table:
 		#print str(G.node[node]['id'])
 		#print str(row[0])
                 if G.node[node]['id'] == row[0]:
                     G.node[node]['score'] = float(row[1])
+		    G.node[node]['no_data'] = False
 		    break
     print 'Reaction scores read.'
+    
+
+    return G
+
+
+# This function takes gene transcription values and maps them (using simple
+# averages) onto reactions in network G (according to gene associations in
+# attribute - default is 'genelist')
+def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist', unknown_to_zero = -1):
+    """Use gene scores to create scores for reactions in C{G}."""
+    all_scores = []
+    for node in G.nodes():
+        if G.node[node]['type'] == 'reaction':
+            if G.node[node][gene_attr] is not empty:
+                new_genelist = []
+                for gene in G.node[node][gene_attr]:
+                    gene = gene.lower()
+                    gene = gene.rstrip('c')
+                    new_genelist.append(gene)
+                G.node[node][gene_attr] = new_genelist
+                scores = []
+                for gene_score in gene_scores:
+		    gene_name = gene_score[0]
+		    gene_name = gene_name.lower()
+                    if gene_name in G.node[node][gene_attr]:
+                        scores.append(gene_score[1])
+                if len(scores) > 0:
+		    mean_score = 0
+		    for score in scores:
+			mean_score += float(score)
+                    mean_score = mean_score/len(scores)
+		    G.node[node]['no_data'] = False
+		    all_scores.append(mean_score)
+                else:
+                    G.node[node]['no_data'] = True
+		    mean_score = 0
+            else:
+                G.node[node]['no_data'] = True
+		mean_score = 0
+	    G.node[node]['score'] = float(mean_score)
+    
+    #Assign scores to all unknown reactions
+    if unknown_to_zero == -1:
+	# Assign median score to all reactions without scores    
+	score_default = float(median(all_scores))
+	print "Unassigned reaction scores set to median."
+    else:
+	print "Unassigned reaction scores set to zero."
+	score_default = 0
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    if G.node[node]['no_data'] == True:
+		G.node[node]['score'] = score_default
+	    G.node[node]['score'] = float(G.node[node]['score'])
+    	
+    return G
+
+def move_median_to_zero(G):
+    """Shift all reaction scores by the value of the median, to put the median at zero."""
+    print "Median reaction score set to zero."
+    # Re-zero reaction scores
+    rxn_score_list = []
+    for i in G.nodes():
+	node = G.node[i]
+	if node['type'] == 'reaction':
+	    rxn_score_list.append(node['score'])
+    median_score = median(rxn_score_list)
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    G.node[node]['score'] -= median_score
+    return G
+
+def move_median_to_offset(G, offset):
+    """Shift all reaction scores by the value of the median, to put the median at zero."""
+    print "Median reaction score set to zero."
+    # Re-zero reaction scores
+    rxn_score_list = []
+    for i in G.nodes():
+	node = G.node[i]
+	if node['type'] == 'reaction':
+	    rxn_score_list.append(node['score'])
+    median_score = median(rxn_score_list)
+    for node in G.nodes():
+	if G.node[node]['type'] == 'reaction':
+	    G.node[node]['score'] -= (median_score-offset)
     return G
 
 
@@ -961,53 +1322,6 @@ def import_channels_genepix(files_in, file_out, ch1 = 34, ch2 = 42, id_col = 8, 
     
     return log_score_table
 
-# This function takes gene transcription values and maps them (using simple
-# averages) onto reactions in network G (according to gene associations in
-# attribute - default is 'genelist')
-def genescore2rxnscore(G, gene_scores, gene_attr = 'genelist'):
-    """Use gene scores to create scores for reactions in C{G}."""
-    all_scores = []
-    for node in G.nodes():
-        if G.node[node]['type'] == 'reaction':
-            if G.node[node][gene_attr] is not empty:
-                new_genelist = []
-                for gene in G.node[node][gene_attr]:
-                    gene = gene.lower()
-                    gene = gene.rstrip('c')
-                    new_genelist.append(gene)
-                G.node[node][gene_attr] = new_genelist
-                scores = []
-                for gene_score in gene_scores:
-		    gene_name = gene_score[0]
-		    gene_name = gene_name.lower()
-                    if gene_name in G.node[node][gene_attr]:
-                        scores.append(gene_score[1])
-                if len(scores) > 0:
-		    mean_score = 0
-		    for score in scores:
-			mean_score += float(score)
-                    mean_score = mean_score/len(scores)
-		    G.node[node]['no_data'] = False
-		    all_scores.append(mean_score)
-                else:
-                    G.node[node]['no_data'] = True
-		    mean_score = 0
-            else:
-                G.node[node]['no_data'] = True
-		mean_score = 0
-	    G.node[node]['score'] = float(mean_score)
-	
-    # Assign median score to all reactions without scores    
-    median_score = float(median(all_scores))
-    for node in G.nodes():
-        if G.node[node]['type'] == 'reaction':
-            if G.node[node]['no_data'] == True:
-		G.node[node]['score'] = median_score
-	    G.node[node]['score'] = float(G.node[node]['score'])
-    	
-    return G
-
-
 def calc_bh_values(p_values, num_total_tests = -1):
     """
     Calculates the Benjamini-Hochberg correction for multiple hypothesis
@@ -1040,6 +1354,17 @@ def calc_bh_values(p_values, num_total_tests = -1):
         bh_values.append(bh_value)
     return bh_values
 
+def inv_transform(G_old, mbc_table):
+    """Transform all known metabolite scores by S_met/(1+|mbc_met|)."""
+    G = G_old.copy()
+    for node in G.nodes():
+        if G.node[node]['type'] == 'metabolite':
+            for met in mbc_table:
+                G.node[node]['score_bak'] = deepcopy(G.node[node]['score'])
+                if G.node[node]['name'] == met[0]:
+                    G.node[node]['score'] = G.node[node]['score']/(1+abs(float(met[1])))
+                    break
+    return G       
 
 # Script function - inputs required are:
 if __name__ == "__main__":
@@ -1063,34 +1388,83 @@ if __name__ == "__main__":
     #intervals_cutoff
     parser.add_argument('-c', action='store', dest='intervals_cutoff', type=int, default = 6, help='number of step intervals before automatic temperature reduction')
     
+    #Metabolomics values
+    parser.add_argument('-t', action='store', dest='metabolomics_file', help='input metabolomics data from a tsv to score metabolites')
+    
+    #T_init_div
+    parser.add_argument('-T', action='store', dest='T_div', type=float, default=10, help='Temperature divisor to fix initial looseness of negative score acceptance')
+    
+    #T_chn_factor
+    parser.add_argument('-U', action='store', dest='T_mult', type=float, default=0.8, help='Temperature multiplier to determine rate of cooling')
+    
+    #Set median scores to zero
+    parser.add_argument('-Y', action='store', dest='median_to_offset', default=None, help='Set flag to move reaction median score to offset value.')
+    
+    #Set unknowns to zero
+    parser.add_argument('-Z', action='store_true', dest='unknown_to_zero', help='Set flag to zero reactions without assigned scores.')
+    
+    #Set score cutoff ratio for encouraging coagulation of modules
+    parser.add_argument('-V', action='store', dest='log_score_cutoff', type=float, default=0.0, help='Set to a value between 0 and 1 to reduce inflatory effects of low scoring nodes to modules.')
+    
     
     args = parser.parse_args()
     
     # Import model and data
     G = import_SBML_to_bipartite(args.model_file)
     
-    # Depnding on whether a reaction score file or a gene score file is selected, import the relevant scores and integrate them with the model
+    #Determine whether to set unknowns to zero
+    if args.unknown_to_zero and args.median_to_offset is None:
+	unknown_to_zero = 1
+    else:
+	unknown_to_zero = -1	
+    
+    # Depending on whether a reaction score file or a gene score file is selected, import the relevant scores and integrate them with the model
     if not args.score_file is None:
 	print 'Reaction scores given.'
-	G = read_rxn_scores(G, args.score_file)
+	G = read_rxn_scores(G, args.score_file, unknown_to_zero)
     elif not args.gene_score_file is None:
 	print 'Gene scores given.'
 	gene_score_table = get_data_tsv(args.gene_score_file)
-	G = genescore2rxnscore(G, gene_score_table)
+	G = genescore2rxnscore(G, gene_score_table, unknown_to_zero = unknown_to_zero)
     else:
 	print 'No input score file was specified.  Please specify a score file with the -s or -g argument.'
 	sys.exit()
     expt = args.expt_name
     
-    # If M is not given, logarithmic scoring is used (and M is set to 1000)
-    if args.M == -1:
-	print 'Using logarithmic scoring.'
+    if args.d == -1:
+	# Determine direction for reaction scores
+        for node in G.nodes():
+            if G.node[node]['type'] == 'reaction':
+                G.node[node]['score'] = -1*G.node[node]['score']
     
+    
+    #If flag is set, move reaction median score to zero.
+    if not args.median_to_offset is None:
+
+	G = move_median_to_offset(G, float(args.median_to_offset))
+
+		
+    if not args.metabolomics_file is None:
+	print 'Metabolomics data given, integrating with weight scores.'
+	mbc_table = get_data_tsv(args.metabolomics_file)
+	G = inv_transform(G, mbc_table)
+    else:
+	print 'No metabolomics data given.'
+    
+#    for node in G.nodes():
+#	if G.node[node]['type'] == 'metabolite':
+#	    print G.node[node]['score']
+#        
     # Execute simulated annealing
-    G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff)
+    G, H, _, ccomps = ambient(expt, G, args.N, args.M, args.d, args.adaptive_interval, args.score_change_ratio, args.intervals_cutoff, -1, args.T_div, args.T_mult, args.log_score_cutoff)
+    
+#    for node in G.nodes():
+#	if G.node[node]['type'] == 'metabolite':
+#	    print G.node[node]['score']
+#    
     
     #Get significance for each module
-    _, _, _, qvals = get_module_pvalues(H, G, args.M, args.P)
+    _, _, _, qvals = get_module_qvalues(H, G, get_graph_scores, args.P, args.M, args.log_score_cutoff)
     
     #Output flat file of significant results
     output_results_table(expt, G, ccomps, qvals)
@@ -1103,8 +1477,23 @@ if __name__ == "__main__":
     print 'Output graph written to %s' % (cc([expt, '.graphml']))
     
     d = shelve.open(cc([expt, '.dat']))
+    
+    #Update experiment details
+    expt_details = d['expt_details']
+    expt_details['T_div'] = args.T_div
+    expt_details['T_mult'] = args.T_mult
+    expt_details['median_to_offset'] = args.median_to_offset
+    if args.unknown_to_zero:
+	expt_details['unknown_to_zero'] = True
+    else:
+	expt_details['unknown_to_zero'] = False
+    expt_details['log_score_cutoff'] = args.log_score_cutoff
+    d['expt_details'] = expt_details
+    
+    #Add results analysis
     d['qvals'] = qvals
     d['G_class'] = G_class
     d['G_output'] = G_output
+    
     d.close()
     
