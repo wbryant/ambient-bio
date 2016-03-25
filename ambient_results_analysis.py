@@ -1,22 +1,7 @@
-import numpy
-from numpy import *
-from scipy import *
-from math import *
-from scipy.stats import mode
-from scipy.misc.common import factorial
-import networkx as nx
-import random as rand
-from time import time
-import operator
 import os.path
-import sys
-import re
 import shelve
-import argparse
 from libsbml import *
-from ambient import get_data_tsv
 import ambient as amb
-import copy
 
 def combine_amb_runs(dat1, dat2, outfile, q_cutoff = 0.05, run1_name = 'Run1', run2_name = 'Run2'):
     """Take the results from two runs of AMBIENT and combine their results,
@@ -179,8 +164,8 @@ def sig_module_table(expt_name, outfile, q_cutoff = 0.05):
         f.write('Run' + str(value) + '\t')
     f.write('\n')
     for row in mod_table:
-        for entry in row:
-            f.write(str(entry) + '\t')
+        row_str = map(str,row)
+        f.write("\t".join(row_str))
         f.write('\n')
     f.close()
     
