@@ -1,3 +1,5 @@
 /.project
 /.pydevproject
 /example/SCE*
+*.pyc
+/example/new_expt.dat
