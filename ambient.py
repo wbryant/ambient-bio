@@ -347,9 +347,9 @@ def ambient(expt_name, Q, N = 10000, M = -1, dir = 1,
     return G_orig, H, scores, cc_out
 
 #Find sum of positive values in a list
-def sumpos(list):
+def sumpos(lst):
     listpos = 0
-    for entry in list:
+    for entry in lst:
         if entry > 0:
             listpos += entry
     return listpos
@@ -363,13 +363,14 @@ def get_graph_scores(G, M, log_score_cutoff = 0.0, G_comps = [], score_dict = {}
     
     if len(G_comps) == 0:
         G_comps = nx.connected_components(G)
+        G_comps = [G_comp for G_comp in G_comps]
+    elif type(G_comps) is set:
+        G_comps = list(G_comps)
     else:
         if type(G_comps[0]) is int:
-            G_comps_tmp = []
-            G_comps_tmp.append(G_comps)
-            G_comps = G_comps_tmp
+            G_comps = [G_comps]
     G_comps_frozen = []
-    no_comps = len(G_comps)
+    #no_comps = len(G_comps)
     s_tot = []
     
 #    score_dict = {}
@@ -381,6 +382,8 @@ def get_graph_scores(G, M, log_score_cutoff = 0.0, G_comps = [], score_dict = {}
     
     # For each connected component get a score
     for component in G_comps:
+        if isinstance(component, int):
+            component = [component]
         nodeset = frozenset(component)
         G_comps_frozen.append(nodeset)
         if nodeset in module_score_dict:
@@ -389,8 +392,11 @@ def get_graph_scores(G, M, log_score_cutoff = 0.0, G_comps = [], score_dict = {}
         else:
             # Get score for this component
             s_tot_count = 0
-            for node in component:
-                s_tot_count += score_dict[node]
+            try:
+                for node in component:
+                    s_tot_count += score_dict[node]
+            except:
+                s_tot_count += score_dict[component]
             if isnan(s_tot_count) or isinf(s_tot_count):
                 s_tot_count = -100
             
