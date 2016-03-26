@@ -12,8 +12,8 @@ Usage of scripts in these files is done at the user's own risk.  Everything nece
 GETTING STARTED
 
 Language: Python
-Non-standard requirements: libSBML, NetworkX, NumPy
-AMBIENT has been tested and works with Python v2.7.2, libSBML v5.3.0, NetworkX v1.6, NumPy v1.6.1
+Non-standard requirements: python-libsbml, NetworkX, NumPy
+AMBIENT has been tested and works with Python v2.7.11, python-libsbml v5.12.1, NetworkX v1.11, NumPy v1.10.4
 
 Use within a Python shell requires the command: 'import ambient'.  Installation is not required for using AMBIENT at the commandline.
 
